@@ -6,6 +6,41 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FF8012CE2F16AEAA00E18390 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012CD2F16AEAA00E18390 /* FirebaseAI */; };
+		FF8012D02F16AEAA00E18390 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012CF2F16AEAA00E18390 /* FirebaseAILogic */; };
+		FF8012D22F16AEAA00E18390 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012D12F16AEAA00E18390 /* FirebaseAnalytics */; };
+		FF8012D42F16AEAA00E18390 /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012D32F16AEAA00E18390 /* FirebaseAnalyticsCore */; };
+		FF8012D62F16AEAA00E18390 /* FirebaseAnalyticsIdentitySupport in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012D52F16AEAA00E18390 /* FirebaseAnalyticsIdentitySupport */; };
+		FF8012D82F16AEAA00E18390 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012D72F16AEAA00E18390 /* FirebaseAppCheck */; };
+		FF8012DA2F16AEAA00E18390 /* FirebaseAppDistribution-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012D92F16AEAA00E18390 /* FirebaseAppDistribution-Beta */; };
+		FF8012DC2F16AEAA00E18390 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012DB2F16AEAA00E18390 /* FirebaseAuth */; };
+		FF8012DE2F16AEAA00E18390 /* FirebaseAuthCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012DD2F16AEAA00E18390 /* FirebaseAuthCombine-Community */; };
+		FF8012E02F16AEAA00E18390 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012DF2F16AEAA00E18390 /* FirebaseCore */; };
+		FF8012E22F16AEAA00E18390 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012E12F16AEAA00E18390 /* FirebaseDatabase */; };
+		FF8012E42F16AEAA00E18390 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012E32F16AEAA00E18390 /* FirebaseFirestore */; };
+		FF8012E62F16AEAA00E18390 /* FirebaseFirestoreCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012E52F16AEAA00E18390 /* FirebaseFirestoreCombine-Community */; };
+		FF8012E82F16AEAA00E18390 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012E72F16AEAA00E18390 /* FirebaseFunctions */; };
+		FF8012EA2F16AEAA00E18390 /* FirebaseFunctionsCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012E92F16AEAA00E18390 /* FirebaseFunctionsCombine-Community */; };
+		FF8012EC2F16AEAA00E18390 /* FirebaseInAppMessaging-Beta in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012EB2F16AEAA00E18390 /* FirebaseInAppMessaging-Beta */; };
+		FF8012EE2F16AEAA00E18390 /* FirebaseInstallations in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012ED2F16AEAA00E18390 /* FirebaseInstallations */; };
+		FF8012F02F16AEAA00E18390 /* FirebaseMLModelDownloader in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012EF2F16AEAA00E18390 /* FirebaseMLModelDownloader */; };
+		FF8012F22F16AEAA00E18390 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012F12F16AEAA00E18390 /* FirebaseMessaging */; };
+		FF8012F42F16AEAA00E18390 /* FirebasePerformance in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012F32F16AEAA00E18390 /* FirebasePerformance */; };
+		FF8012F62F16AEAA00E18390 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012F52F16AEAA00E18390 /* FirebaseRemoteConfig */; };
+		FF8012F82F16AEAA00E18390 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012F72F16AEAA00E18390 /* FirebaseStorage */; };
+		FF8012FA2F16AEAA00E18390 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012F92F16AEAA00E18390 /* FirebaseStorageCombine-Community */; };
+		FF8012FD2F16C42600E18390 /* Stripe in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012FC2F16C42600E18390 /* Stripe */; };
+		FF8012FF2F16C42600E18390 /* StripeApplePay in Frameworks */ = {isa = PBXBuildFile; productRef = FF8012FE2F16C42600E18390 /* StripeApplePay */; };
+		FF8013012F16C42600E18390 /* StripeCardScan in Frameworks */ = {isa = PBXBuildFile; productRef = FF8013002F16C42600E18390 /* StripeCardScan */; };
+		FF8013032F16C42600E18390 /* StripeConnect in Frameworks */ = {isa = PBXBuildFile; productRef = FF8013022F16C42600E18390 /* StripeConnect */; };
+		FF8013052F16C42600E18390 /* StripeFinancialConnections in Frameworks */ = {isa = PBXBuildFile; productRef = FF8013042F16C42600E18390 /* StripeFinancialConnections */; };
+		FF8013072F16C42600E18390 /* StripeIdentity in Frameworks */ = {isa = PBXBuildFile; productRef = FF8013062F16C42600E18390 /* StripeIdentity */; };
+		FF8013092F16C42600E18390 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = FF8013082F16C42600E18390 /* StripePaymentSheet */; };
+		FF80130B2F16C42600E18390 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = FF80130A2F16C42600E18390 /* StripePayments */; };
+		FF80130D2F16C42600E18390 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = FF80130C2F16C42600E18390 /* StripePaymentsUI */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		FF80119E2F1682F200E18390 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +87,38 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FF8012FF2F16C42600E18390 /* StripeApplePay in Frameworks */,
+				FF8012E62F16AEAA00E18390 /* FirebaseFirestoreCombine-Community in Frameworks */,
+				FF8012E82F16AEAA00E18390 /* FirebaseFunctions in Frameworks */,
+				FF8012F42F16AEAA00E18390 /* FirebasePerformance in Frameworks */,
+				FF8013092F16C42600E18390 /* StripePaymentSheet in Frameworks */,
+				FF8012FA2F16AEAA00E18390 /* FirebaseStorageCombine-Community in Frameworks */,
+				FF8013072F16C42600E18390 /* StripeIdentity in Frameworks */,
+				FF80130B2F16C42600E18390 /* StripePayments in Frameworks */,
+				FF8012F62F16AEAA00E18390 /* FirebaseRemoteConfig in Frameworks */,
+				FF8012FD2F16C42600E18390 /* Stripe in Frameworks */,
+				FF8012DA2F16AEAA00E18390 /* FirebaseAppDistribution-Beta in Frameworks */,
+				FF8012DE2F16AEAA00E18390 /* FirebaseAuthCombine-Community in Frameworks */,
+				FF8012D02F16AEAA00E18390 /* FirebaseAILogic in Frameworks */,
+				FF8012D62F16AEAA00E18390 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
+				FF8012CE2F16AEAA00E18390 /* FirebaseAI in Frameworks */,
+				FF8012E42F16AEAA00E18390 /* FirebaseFirestore in Frameworks */,
+				FF8012F22F16AEAA00E18390 /* FirebaseMessaging in Frameworks */,
+				FF8012EE2F16AEAA00E18390 /* FirebaseInstallations in Frameworks */,
+				FF8012EA2F16AEAA00E18390 /* FirebaseFunctionsCombine-Community in Frameworks */,
+				FF8012D22F16AEAA00E18390 /* FirebaseAnalytics in Frameworks */,
+				FF8013052F16C42600E18390 /* StripeFinancialConnections in Frameworks */,
+				FF8012E02F16AEAA00E18390 /* FirebaseCore in Frameworks */,
+				FF80130D2F16C42600E18390 /* StripePaymentsUI in Frameworks */,
+				FF8012EC2F16AEAA00E18390 /* FirebaseInAppMessaging-Beta in Frameworks */,
+				FF8013032F16C42600E18390 /* StripeConnect in Frameworks */,
+				FF8012D82F16AEAA00E18390 /* FirebaseAppCheck in Frameworks */,
+				FF8013012F16C42600E18390 /* StripeCardScan in Frameworks */,
+				FF8012E22F16AEAA00E18390 /* FirebaseDatabase in Frameworks */,
+				FF8012F02F16AEAA00E18390 /* FirebaseMLModelDownloader in Frameworks */,
+				FF8012F82F16AEAA00E18390 /* FirebaseStorage in Frameworks */,
+				FF8012D42F16AEAA00E18390 /* FirebaseAnalyticsCore in Frameworks */,
+				FF8012DC2F16AEAA00E18390 /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +179,38 @@
 			);
 			name = LocalGuide;
 			packageProductDependencies = (
+				FF8012CD2F16AEAA00E18390 /* FirebaseAI */,
+				FF8012CF2F16AEAA00E18390 /* FirebaseAILogic */,
+				FF8012D12F16AEAA00E18390 /* FirebaseAnalytics */,
+				FF8012D32F16AEAA00E18390 /* FirebaseAnalyticsCore */,
+				FF8012D52F16AEAA00E18390 /* FirebaseAnalyticsIdentitySupport */,
+				FF8012D72F16AEAA00E18390 /* FirebaseAppCheck */,
+				FF8012D92F16AEAA00E18390 /* FirebaseAppDistribution-Beta */,
+				FF8012DB2F16AEAA00E18390 /* FirebaseAuth */,
+				FF8012DD2F16AEAA00E18390 /* FirebaseAuthCombine-Community */,
+				FF8012DF2F16AEAA00E18390 /* FirebaseCore */,
+				FF8012E12F16AEAA00E18390 /* FirebaseDatabase */,
+				FF8012E32F16AEAA00E18390 /* FirebaseFirestore */,
+				FF8012E52F16AEAA00E18390 /* FirebaseFirestoreCombine-Community */,
+				FF8012E72F16AEAA00E18390 /* FirebaseFunctions */,
+				FF8012E92F16AEAA00E18390 /* FirebaseFunctionsCombine-Community */,
+				FF8012EB2F16AEAA00E18390 /* FirebaseInAppMessaging-Beta */,
+				FF8012ED2F16AEAA00E18390 /* FirebaseInstallations */,
+				FF8012EF2F16AEAA00E18390 /* FirebaseMLModelDownloader */,
+				FF8012F12F16AEAA00E18390 /* FirebaseMessaging */,
+				FF8012F32F16AEAA00E18390 /* FirebasePerformance */,
+				FF8012F52F16AEAA00E18390 /* FirebaseRemoteConfig */,
+				FF8012F72F16AEAA00E18390 /* FirebaseStorage */,
+				FF8012F92F16AEAA00E18390 /* FirebaseStorageCombine-Community */,
+				FF8012FC2F16C42600E18390 /* Stripe */,
+				FF8012FE2F16C42600E18390 /* StripeApplePay */,
+				FF8013002F16C42600E18390 /* StripeCardScan */,
+				FF8013022F16C42600E18390 /* StripeConnect */,
+				FF8013042F16C42600E18390 /* StripeFinancialConnections */,
+				FF8013062F16C42600E18390 /* StripeIdentity */,
+				FF8013082F16C42600E18390 /* StripePaymentSheet */,
+				FF80130A2F16C42600E18390 /* StripePayments */,
+				FF80130C2F16C42600E18390 /* StripePaymentsUI */,
 			);
 			productName = LocalGuide;
 			productReference = FF80118D2F1682F100E18390 /* LocalGuide.app */;
@@ -195,6 +294,10 @@
 			);
 			mainGroup = FF8011842F1682F100E18390;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FF80118E2F1682F100E18390 /* Products */;
 			projectDirPath = "";
@@ -558,6 +661,188 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.7.0;
+			};
+		};
+		FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 25.4.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FF8012CD2F16AEAA00E18390 /* FirebaseAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAI;
+		};
+		FF8012CF2F16AEAA00E18390 /* FirebaseAILogic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAILogic;
+		};
+		FF8012D12F16AEAA00E18390 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		FF8012D32F16AEAA00E18390 /* FirebaseAnalyticsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsCore;
+		};
+		FF8012D52F16AEAA00E18390 /* FirebaseAnalyticsIdentitySupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsIdentitySupport;
+		};
+		FF8012D72F16AEAA00E18390 /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
+		};
+		FF8012D92F16AEAA00E18390 /* FirebaseAppDistribution-Beta */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseAppDistribution-Beta";
+		};
+		FF8012DB2F16AEAA00E18390 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		FF8012DD2F16AEAA00E18390 /* FirebaseAuthCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseAuthCombine-Community";
+		};
+		FF8012DF2F16AEAA00E18390 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		FF8012E12F16AEAA00E18390 /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+		FF8012E32F16AEAA00E18390 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		FF8012E52F16AEAA00E18390 /* FirebaseFirestoreCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseFirestoreCombine-Community";
+		};
+		FF8012E72F16AEAA00E18390 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
+		FF8012E92F16AEAA00E18390 /* FirebaseFunctionsCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseFunctionsCombine-Community";
+		};
+		FF8012EB2F16AEAA00E18390 /* FirebaseInAppMessaging-Beta */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseInAppMessaging-Beta";
+		};
+		FF8012ED2F16AEAA00E18390 /* FirebaseInstallations */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseInstallations;
+		};
+		FF8012EF2F16AEAA00E18390 /* FirebaseMLModelDownloader */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMLModelDownloader;
+		};
+		FF8012F12F16AEAA00E18390 /* FirebaseMessaging */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseMessaging;
+		};
+		FF8012F32F16AEAA00E18390 /* FirebasePerformance */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebasePerformance;
+		};
+		FF8012F52F16AEAA00E18390 /* FirebaseRemoteConfig */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseRemoteConfig;
+		};
+		FF8012F72F16AEAA00E18390 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		FF8012F92F16AEAA00E18390 /* FirebaseStorageCombine-Community */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = "FirebaseStorageCombine-Community";
+		};
+		FF8012FC2F16C42600E18390 /* Stripe */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = Stripe;
+		};
+		FF8012FE2F16C42600E18390 /* StripeApplePay */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripeApplePay;
+		};
+		FF8013002F16C42600E18390 /* StripeCardScan */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripeCardScan;
+		};
+		FF8013022F16C42600E18390 /* StripeConnect */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripeConnect;
+		};
+		FF8013042F16C42600E18390 /* StripeFinancialConnections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripeFinancialConnections;
+		};
+		FF8013062F16C42600E18390 /* StripeIdentity */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripeIdentity;
+		};
+		FF8013082F16C42600E18390 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentSheet;
+		};
+		FF80130A2F16C42600E18390 /* StripePayments */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePayments;
+		};
+		FF80130C2F16C42600E18390 /* StripePaymentsUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentsUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FF8011852F1682F100E18390 /* Project object */;
 }
