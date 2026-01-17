@@ -4,6 +4,7 @@ struct GuideProfileSetupView: View {
     @EnvironmentObject var appState: AppState
 
     @State private var displayName = ""
+    @State private var country = ""
     @State private var city = ""
     @State private var languages = "English"
     @State private var bio = ""
@@ -47,7 +48,10 @@ struct GuideProfileSetupView: View {
                             Divider().opacity(0.15)
 
                             LuxuryTextField(title: "Display name", text: $displayName)
-                            LuxuryTextField(title: "City", text: $city)
+                            Text("Location").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+
+                            CountryPicker(country: $country)
+                            CityPicker(city: $city, country: country)
                             LuxuryTextField(title: "Languages (comma separated)", text: $languages)
                             LuxuryTextField(title: "Bio", text: $bio)
 

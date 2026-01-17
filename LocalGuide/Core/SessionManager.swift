@@ -5,7 +5,8 @@ import FirebaseAuth
 final class SessionManager: ObservableObject {
     @Published var firebaseUser: User? = nil
     @Published var currentUser: AppUser? = nil
-    @Published var isLoading: Bool = true
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String? = nil
 
     private var handle: AuthStateDidChangeListenerHandle?
 
@@ -44,4 +45,13 @@ final class SessionManager: ObservableObject {
         firebaseUser = nil
         currentUser = nil
     }
+    
+    @MainActor
+    func refreshCurrentUserIfAvailable() async {
+        guard let uid = firebaseUser?.uid else { return }
+        do {
+            currentUser = try await FirestoreService.shared.getUser(uid: uid)
+        } catch { }
+    }
+
 }

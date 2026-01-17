@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct RolePickerView: View {
+    @EnvironmentObject var router: AuthRouter
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -11,36 +13,30 @@ struct RolePickerView: View {
                         .foregroundStyle(.white)
                         .padding(.top, 8)
 
-                    Text("Book premium tours or apply to host luxury experiences.")
+                    Text("Book premium tours, or publish luxury cultural experiences.")
                         .foregroundStyle(.white.opacity(0.7))
 
                     LuxuryCard {
                         VStack(spacing: 12) {
-                            NavigationLink { RegisterView(role: .user) } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Traveler").font(.headline)
-                                        Text("Book luxury tours").font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "arrow.right")
-                                }
+                            Button {
+                                router.path.append(.register(.traveler))
+                            } label: {
+                                row(title: "Traveler", subtitle: "Book luxury tours", icon: "suitcase.rolling.fill")
                             }
-                            .buttonStyle(.plain)
-
                             Divider().opacity(0.15)
 
-                            NavigationLink { RegisterView(role: .guide) } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Guide").font(.headline)
-                                        Text("Host premium experiences").font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "arrow.right")
-                                }
+                            Button {
+                                router.path.append(.register(.host))
+                            } label: {
+                                row(title: "Experience Host", subtitle: "Sell cultural experiences", icon: "sparkles")
                             }
-                            .buttonStyle(.plain)
+                            Divider().opacity(0.15)
+
+                            Button {
+                                router.path.append(.register(.guide))
+                            } label: {
+                                row(title: "Guide", subtitle: "Host premium tours", icon: "map.fill")
+                            }
                         }
                     }
                 }
@@ -49,5 +45,18 @@ struct RolePickerView: View {
         }
         .navigationTitle("Register")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func row(title: String, subtitle: String, icon: String) -> some View {
+        HStack {
+            Image(systemName: icon).foregroundStyle(Lx.gold).frame(width: 22)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "arrow.right")
+        }
+        .foregroundStyle(.primary)
     }
 }

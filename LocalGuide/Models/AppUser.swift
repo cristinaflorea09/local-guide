@@ -1,29 +1,31 @@
 import Foundation
 
-struct AppUser: Codable, Identifiable {
-    let id: String
+struct AppUser: Identifiable, Codable {
+    var id: String
     var email: String?
+
+    // Profile
+    var fullName: String
+    var dateOfBirth: Date?
+    var country: String
+    var city: String
+    var preferredLanguageCode: String
+
+    // Role & entitlements
     var role: UserRole
-    var createdAt: Date
+    var subscriptionPlan: SubscriptionPlan   // free_ads or premium
     var disabled: Bool
 
-    // Guide onboarding
-    var guideProfileCreated: Bool?
-    var guideApproved: Bool?
+    // Optional avatar
+    var photoURL: String?
 
-    init(id: String,
-         email: String? = nil,
-         role: UserRole,
-         createdAt: Date = Date(),
-         disabled: Bool = false,
-         guideProfileCreated: Bool? = nil,
-         guideApproved: Bool? = nil) {
-        self.id = id
-        self.email = email
-        self.role = role
-        self.createdAt = createdAt
-        self.disabled = disabled
-        self.guideProfileCreated = guideProfileCreated
-        self.guideApproved = guideApproved
-    }
+    var createdAt: Date
+    var guideApproved: Bool
+    var guideProfileCreated: Bool
+
+}
+
+enum SubscriptionPlan: String, Codable {
+    case freeAds = "free_ads"
+    case premium = "premium"
 }

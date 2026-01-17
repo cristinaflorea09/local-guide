@@ -29,7 +29,10 @@ struct GuideHomeView: View {
                 else { NotApprovedView() }
             }
             .tabItem { Label("Chat", systemImage: "message") }
-
+            NavigationStack {
+                AccountView()
+            }
+            .tabItem { Label("Account", systemImage: "map") }
             NavigationStack {
                 if isApproved { GuideBookingsView() }
                 else { NotApprovedView() }

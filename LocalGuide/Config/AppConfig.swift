@@ -7,5 +7,7 @@ enum AppConfig {
         "localGuideMembership"
     ]
     // Booking currency for Stripe
+    static let googleMapsAPIKey: String = ""
+    
     static let stripeCurrency = "eur"
 }

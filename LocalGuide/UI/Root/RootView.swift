@@ -2,47 +2,53 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var session: SessionManager
 
     var body: some View {
-        let _ = print("RootView body recomputed. currentUser:", appState.session.currentUser?.id ?? "nil")
-
-        NavigationStack {
+        Group {
             if let user = appState.session.currentUser {
-                if user.role == .admin { AdminHomeView() }
-                else if user.role == .guide { GuideHomeView() }
-                else { UserHomeView() }
-            } else {
-                AuthLandingView()   // ✅ default screen
-            }
-        }
-        .overlay {
-            if let msg = appState.session.errorMessage {
-                VStack(spacing: 8) {
-                    Text("Session error").font(.headline)
-                    Text(msg).font(.caption).multilineTextAlignment(.center)
+                if user.disabled {
+                    DisabledAccountView()
+                } else {
+                    switch user.role {
+                    case .admin:
+                        AdminHomeView()
+                    case .guide:
+                        GuideHomeView()
+                    case .host:
+                        HostHomeView()
+                    case .traveler:
+                        UserHomeView()
+                    }
                 }
-                .padding()
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding()
-            } else if appState.session.isLoading {
-                ProgressView("Loading…")
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                AuthFlowView()
             }
         }
+        .environment(\.locale, Locale(identifier: appState.settings.languageCode))
         .task {
             appState.session.startListening()
-
-            // Don’t block first screen
             Task { await appState.subscription.loadProducts() }
             Task { await appState.subscription.refreshEntitlements() }
             Task { try? await StripeService.shared.configureStripe() }
         }
-
+        .onChange(of: appState.session.currentUser?.preferredLanguageCode) { newCode in
+            if let code = newCode, !code.isEmpty {
+                appState.settings.languageCode = code
+            }
+        }
     }
-
 }
 
+struct DisabledAccountView: View {
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 10) {
+                Image(systemName: "hand.raised.fill").font(.largeTitle).foregroundStyle(Lx.gold)
+                Text("Account disabled").font(.title2.bold()).foregroundStyle(.white)
+                Text("Please contact support.").foregroundStyle(.white.opacity(0.7))
+            }
+            .padding()
+        }
+    }
+}

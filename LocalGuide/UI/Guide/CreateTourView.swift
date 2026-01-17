@@ -5,6 +5,7 @@ struct CreateTourView: View {
 
     @State private var title = ""
     @State private var description = ""
+    @State private var country = ""
     @State private var city = ""
     @State private var durationMinutes = 120
     @State private var price = "50"
@@ -32,7 +33,10 @@ struct CreateTourView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             LuxuryTextField(title: "Title", text: $title)
                             LuxuryTextField(title: "Description", text: $description)
-                            LuxuryTextField(title: "City", text: $city)
+                            Text("Location").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+
+                            CountryPicker(country: $country)
+                            CityPicker(city: $city, country: country)
 
                             Text("Cover image")
                                 .font(.caption.weight(.semibold))
@@ -68,6 +72,8 @@ struct CreateTourView: View {
                     }
 
                     Button {
+                        print("Publish tapped")
+
                         Haptics.medium()
                         Task { await publish() }
                     } label: {

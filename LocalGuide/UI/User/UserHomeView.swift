@@ -8,10 +8,10 @@ struct UserHomeView: View {
             ExploreToursView()
                 .tabItem { Label("Explore", systemImage: "magnifyingglass") }
 
-            MapToursView()
+            GoogleMapToursView()
                 .tabItem { Label("Map", systemImage: "map") }
 
-            ChatsListView(mode: .user)
+            ChatsListView(mode: .traveler)
                 .tabItem { Label("Chat", systemImage: "message") }
 UserBookingsView()
                 .tabItem { Label("Bookings", systemImage: "ticket") }

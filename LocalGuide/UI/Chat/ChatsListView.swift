@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum ChatMode { case user, guide }
+enum ChatMode { case traveler, guide }
 
 struct ChatsListView: View {
     @EnvironmentObject var appState: AppState
@@ -75,7 +75,7 @@ struct ChatsListView: View {
         guard let uid = appState.session.firebaseUser?.uid else { return }
         isLoading = true
         do {
-            threads = (mode == .user)
+            threads = (mode == .traveler)
                 ? try await FirestoreService.shared.getChatThreadsForUser(userId: uid)
                 : try await FirestoreService.shared.getChatThreadsForGuide(guideId: uid)
         } catch {
@@ -89,7 +89,7 @@ struct ChatsListView: View {
     private func prefetchCounterparts() async {
         for t in threads {
             switch mode {
-            case .user:
+            case .traveler:
                 await directory.loadGuideIfNeeded(t.guideId)
             case .guide:
                 await directory.loadUserIfNeeded(t.userId)
@@ -99,7 +99,7 @@ struct ChatsListView: View {
 
     private func title(for thread: ChatThread) -> String {
         switch mode {
-        case .user:
+        case .traveler:
             return directory.guide(thread.guideId)?.displayName ?? "Guide"
         case .guide:
             return directory.user(thread.userId)?.email ?? "Traveler"
@@ -108,7 +108,7 @@ struct ChatsListView: View {
 
     private func avatarURL(for thread: ChatThread) -> String? {
         switch mode {
-        case .user:
+        case .traveler:
             return directory.guide(thread.guideId)?.photoURL
         case .guide:
             return nil

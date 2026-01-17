@@ -2,6 +2,7 @@ import SwiftUI
 import AuthenticationServices
 
 struct LoginView: View {
+    @EnvironmentObject var router: AuthRouter
     @State private var email = ""
     @State private var password = ""
     @State private var isLoading = false
@@ -31,9 +32,9 @@ struct LoginView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 6)
 
-                    AppleSignInButtonView(onCompletion: { result in
-                        Task { await handleApple(result) }
-                    })
+                    AppleSignInButtonView { result, nonce in
+                        Task { await handleApple(result, nonce: nonce) }
+                    }
 
                     if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
 
@@ -49,21 +50,32 @@ struct LoginView: View {
     private func login() async {
         isLoading = true
         errorMessage = nil
-        do { try await AuthService.shared.login(email: email, password: password) }
-        catch { errorMessage = error.localizedDescription }
-        isLoading = false
-        print("✅ FirebaseAuth login success")
-
-    }
-
-    private func handleApple(_ result: Result<ASAuthorization, Error>) async {
-        errorMessage = nil
-        switch result {
-        case .success(let auth):
-            do { try await AuthService.shared.signInWithApple(authorization: auth) }
-            catch { errorMessage = error.localizedDescription }
-        case .failure(let error):
+        do {
+            try await AuthService.shared.login(email: email, password: password)
+            // RootView listens to auth state; once it switches to Home, AuthFlow disappears.
+        } catch {
             errorMessage = error.localizedDescription
         }
+        isLoading = false
     }
+
+    private func handleApple(_ result: Result<ASAuthorization, Error>, nonce: String?) async {
+        switch result {
+        case .success(let authorization):
+            guard let nonce else {
+                // nonce missing = request didn’t run properly
+                return
+            }
+            do {
+                try await AuthService.shared.signInWithApple(authorization: authorization, rawNonce: nonce)
+            } catch {
+                // show error
+            }
+
+        case .failure(let error):
+            // show error
+            print(error.localizedDescription)
+        }
+    }
+
 }

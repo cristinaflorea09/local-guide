@@ -1,6 +1,9 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseAppCheck
+#if canImport(GoogleMaps)
+import GoogleMaps
+#endif
 
 final class AppCheckFactory: NSObject, AppCheckProviderFactory {
     override init() { super.init() }
@@ -22,8 +25,22 @@ struct LocalGuideApp: App {
     @StateObject private var appState = AppState()
 
     init() {
-        AppCheck.setAppCheckProviderFactory(AppCheckFactory())
+        #if DEBUG
+        AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
+        #else
+        if #available(iOS 14.0, *) {
+            AppCheck.setAppCheckProviderFactory(AppAttestProviderFactory())
+        } else {
+            AppCheck.setAppCheckProviderFactory(DeviceCheckProviderFactory())
+        }
+        #endif
         FirebaseApp.configure()
+#if canImport(GoogleMaps)
+// TODO: Put your key in AppConfig.googleMapsAPIKey
+if !AppConfig.googleMapsAPIKey.isEmpty {
+    GMSServices.provideAPIKey(AppConfig.googleMapsAPIKey)
+}
+#endif
     }
 
     var body: some Scene {

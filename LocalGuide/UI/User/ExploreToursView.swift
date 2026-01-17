@@ -42,6 +42,11 @@ struct ExploreToursView: View {
                             }
                         }
 
+
+                        if !(appState.session.currentUser?.subscriptionPlan == .premium || appState.subscription.isPremium) {
+                            AdsBannerView()
+                        }
+
                         if isLoading { ProgressView("Loading…").tint(Lx.gold).padding(.top, 6) }
 
                         LazyVStack(spacing: 14) {

@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct AuthLandingView: View {
+    @EnvironmentObject var router: AuthRouter
+
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color.white, Color.black.opacity(0.92), Color.black.opacity(0.86)],
+            LinearGradient(colors: [Color.black, Color.black.opacity(0.92), Color.black.opacity(0.86)],
                            startPoint: .topLeading, endPoint: .bottomTrailing)
                 .ignoresSafeArea()
 
@@ -11,11 +13,15 @@ struct AuthLandingView: View {
                 Spacer()
 
                 VStack(spacing: 10) {
-                    Text(AppConfig.appName)
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                    Text("LOCALGUIDE")
+                        .font(.system(size: 44, weight: .black, design: .rounded))
+                        .tracking(3.5)
+                        .foregroundStyle(
+                            LinearGradient(colors: [Lx.gold, .white.opacity(0.85), Lx.gold.opacity(0.8)],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
 
-                    Text("Luxury local experiences, curated by trusted guides.")
+                    Text("Luxury local experiences, curated by trusted hosts & guides.")
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.75))
                         .multilineTextAlignment(.center)
@@ -24,10 +30,10 @@ struct AuthLandingView: View {
 
                 LuxuryCard {
                     VStack(spacing: 12) {
-                        NavigationLink { RolePickerView() } label: { Text("Create account") }
+                        Button { router.path = [.rolePicker] } label: { Text("Create account") }
                             .buttonStyle(LuxuryPrimaryButtonStyle())
 
-                        NavigationLink { LoginView() } label: { Text("Login") }
+                        Button { router.goToLogin() } label: { Text("Login") }
                             .buttonStyle(LuxurySecondaryButtonStyle())
                     }
                 }

@@ -4,21 +4,36 @@ import AuthenticationServices
 
 final class AuthService {
     static let shared = AuthService()
-
     private init() {}
 
-    func register(email: String, password: String, role: UserRole) async throws -> String {
+    // Email/password
+    func register(
+        email: String,
+        password: String,
+        role: UserRole,
+        fullName: String,
+        dateOfBirth: Date?,
+        country: String,
+        city: String,
+        preferredLanguageCode: String,
+        subscriptionPlan: SubscriptionPlan
+    ) async throws -> String {
         let result = try await Auth.auth().createUser(withEmail: email, password: password)
         let uid = result.user.uid
 
         let user = AppUser(
             id: uid,
             email: email,
+            fullName: fullName,
+            dateOfBirth: dateOfBirth,
+            country: country,
+            city: city,
+            preferredLanguageCode: preferredLanguageCode,
             role: role,
-            createdAt: Date(),
+            subscriptionPlan: subscriptionPlan,
             disabled: false,
-            guideProfileCreated: role == .guide ? false : nil,
-            guideApproved: role == .guide ? false : nil
+            photoURL: nil,
+            createdAt: Date(), guideApproved: false, guideProfileCreated: false
         )
         try await FirestoreService.shared.createUser(user)
         return uid
@@ -32,46 +47,55 @@ final class AuthService {
         try Auth.auth().signOut()
     }
 
-    // In your AuthService class:
-    private var currentNonce: String?
-
-    // MARK: - Sign in with Apple (Firebase Auth)
-    func signInWithApple(authorization: ASAuthorization) async throws {
+    // Apple sign-in: default to traveler role, user can upgrade later in account settings
+    func signInWithApple(authorization: ASAuthorization, rawNonce: String) async throws {
         guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            throw NSError(domain: "AppleSignIn", code: 0,
-                          userInfo: [NSLocalizedDescriptionKey: "Invalid Apple credential"])
+            throw NSError(domain: "AuthService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid Apple credential"])
         }
 
-        guard let appleToken = appleIDCredential.identityToken,
-              let tokenString = String(data: appleToken, encoding: .utf8) else {
-            throw NSError(domain: "AppleSignIn", code: 0,
-                          userInfo: [NSLocalizedDescriptionKey: "Unable to fetch identity token"])
+        guard let identityToken = appleIDCredential.identityToken,
+              let idTokenString = String(data: identityToken, encoding: .utf8) else {
+            throw NSError(domain: "AuthService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unable to fetch identity token"])
         }
 
-        guard let nonce = currentNonce else {
-            throw NSError(domain: "AppleSignIn", code: 0,
-                          userInfo: [NSLocalizedDescriptionKey: "Missing nonce. Start Apple sign-in again."])
-        }
+        let nonce = NonceGenerator.randomNonceString()
+        let hashedNonce = NonceGenerator.sha256(nonce)
 
         let credential = OAuthProvider.appleCredential(
-            withIDToken: tokenString,
-            rawNonce: nonce,
+            withIDToken: idTokenString,
+            rawNonce: hashedNonce,
             fullName: appleIDCredential.fullName
         )
 
         let result = try await Auth.auth().signIn(with: credential)
         let uid = result.user.uid
 
-        // Ensure user doc exists (default role: user)
+        // Create user document if missing
         do {
             _ = try await FirestoreService.shared.getUser(uid: uid)
         } catch {
             let email = appleIDCredential.email ?? result.user.email
-            let user = AppUser(id: uid, email: email, role: .user, createdAt: Date(), disabled: false)
+            let fullName = [appleIDCredential.fullName?.givenName,
+                            appleIDCredential.fullName?.familyName]
+                .compactMap { $0 }
+                .joined(separator: " ")
+
+            let user = AppUser(
+                id: uid,
+                email: email,
+                fullName: fullName.isEmpty ? "Traveler" : fullName,
+                dateOfBirth: nil,
+                country: "",
+                city: "",
+                preferredLanguageCode: "en",
+                role: .traveler,
+                subscriptionPlan: .freeAds,
+                disabled: false,
+                photoURL: nil,
+                createdAt: Date(), guideApproved: false, guideProfileCreated: false            )
+
             try await FirestoreService.shared.createUser(user)
         }
-
-        // Optional: clear nonce after use
-        currentNonce = nil
     }
 }
+

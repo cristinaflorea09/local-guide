@@ -39,6 +39,7 @@
 		FF8013092F16C42600E18390 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = FF8013082F16C42600E18390 /* StripePaymentSheet */; };
 		FF80130B2F16C42600E18390 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = FF80130A2F16C42600E18390 /* StripePayments */; };
 		FF80130D2F16C42600E18390 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = FF80130C2F16C42600E18390 /* StripePaymentsUI */; };
+		FFA819812F1A8C78004D9CA4 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FFA819802F1A8C78004D9CA4 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +63,7 @@
 		FF80118D2F1682F100E18390 /* LocalGuide.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LocalGuide.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF80119D2F1682F200E18390 /* LocalGuideTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalGuideTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF8011A72F1682F200E18390 /* LocalGuideUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalGuideUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFA819802F1A8C78004D9CA4 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -142,6 +144,7 @@
 		FF8011842F1682F100E18390 = {
 			isa = PBXGroup;
 			children = (
+				FFA819802F1A8C78004D9CA4 /* GoogleService-Info.plist */,
 				FF80118F2F1682F100E18390 /* LocalGuide */,
 				FF8011A02F1682F200E18390 /* LocalGuideTests */,
 				FF8011AA2F1682F200E18390 /* LocalGuideUITests */,
@@ -297,6 +300,7 @@
 			packageReferences = (
 				FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */,
+				FFA81A222F1AC12F004D9CA4 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FF80118E2F1682F100E18390 /* Products */;
@@ -315,6 +319,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FFA819812F1A8C78004D9CA4 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -496,6 +501,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LocalGuide/LocalGuide.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"LocalGuide/Preview Content\"";
@@ -512,7 +518,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.techsoft.LocalGuide;
+				PRODUCT_BUNDLE_IDENTIFIER = com.techsoft.localguides;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -525,6 +531,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = LocalGuide/LocalGuide.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"LocalGuide/Preview Content\"";
@@ -541,7 +548,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.techsoft.LocalGuide;
+				PRODUCT_BUNDLE_IDENTIFIER = com.techsoft.localguides;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -677,6 +684,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 25.4.0;
+			};
+		};
+		FFA81A222F1AC12F004D9CA4 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googlemaps/ios-maps-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 10.7.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
