@@ -21,8 +21,10 @@ final class AppCheckFactory: NSObject, AppCheckProviderFactory {
 }
 
 @main
-struct LocalGuideApp: App {
+struct LocalGuideProApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
+    @StateObject private var chatUnread = ChatUnreadService.shared
 
     init() {
         #if DEBUG
@@ -47,6 +49,7 @@ if !AppConfig.googleMapsAPIKey.isEmpty {
         WindowGroup {
             RootView()
                 .environmentObject(appState)
+                .environmentObject(chatUnread)
         }
     }
 }

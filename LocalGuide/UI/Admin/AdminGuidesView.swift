@@ -24,10 +24,10 @@ struct AdminGuidesView: View {
                 if !isLoading && guides.isEmpty { ContentUnavailableView("No guides", systemImage: "person") }
             }
             .navigationTitle("Guides")
-            .toolbar { Button("Refresh") { Task { await load() } } }
+        }
             .onAppear { Task { await load() } }
         }
-    }
+    
 
     private func load() async {
         isLoading = true

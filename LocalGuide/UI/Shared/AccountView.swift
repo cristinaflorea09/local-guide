@@ -2,8 +2,6 @@ import SwiftUI
 
 struct AccountView: View {
     @EnvironmentObject var appState: AppState
-    @State private var saving = false
-    @State private var message: String?
 
     var body: some View {
         NavigationStack {
@@ -28,22 +26,6 @@ struct AccountView: View {
                                     Spacer()
                                     LuxuryPill(text: user.role.rawValue.uppercased())
                                 }
-
-                                Divider().opacity(0.15)
-
-                                Picker("Language", selection: Binding(
-                                    get: { appState.settings.languageCode },
-                                    set: { newValue in
-                                        Task { await saveLanguage(newValue) }
-                                    }
-                                )) {
-                                    Text("English").tag("en")
-                                    Text("Romanian").tag("ro")
-                                    Text("French").tag("fr")
-                                    Text("Spanish").tag("es")
-                                    Text("Italian").tag("it")
-                                }
-                                .pickerStyle(.menu)
 
                                 HStack {
                                     Text("Plan")
@@ -71,8 +53,9 @@ struct AccountView: View {
                         NavigationLink { SubscriptionView() } label: { Text("Premium") }
                             .buttonStyle(LuxurySecondaryButtonStyle())
 
-                        if let message {
-                            Text(message).foregroundStyle(.white.opacity(0.75))
+                        if user.role == .guide || user.role == .host {
+                            NavigationLink { SellerPlansView() } label: { Text("Seller Plans") }
+                                .buttonStyle(LuxurySecondaryButtonStyle())
                         }
                     }
 
@@ -84,20 +67,5 @@ struct AccountView: View {
                 .padding(18)
             }
         }
-    }
-
-    private func saveLanguage(_ code: String) async {
-        guard var user = appState.session.currentUser else { return }
-        saving = true
-        message = nil
-        do {
-            user.preferredLanguageCode = code
-            try await FirestoreService.shared.createUser(user) // merge
-            appState.settings.languageCode = code
-            Haptics.success()
-        } catch {
-            message = error.localizedDescription
-        }
-        saving = false
     }
 }

@@ -16,10 +16,14 @@ final class AuthService {
         country: String,
         city: String,
         preferredLanguageCode: String,
-        subscriptionPlan: SubscriptionPlan
+        subscriptionPlan: SubscriptionPlan,
+        acceptedTermsVersion: Int
     ) async throws -> String {
         let result = try await Auth.auth().createUser(withEmail: email, password: password)
         let uid = result.user.uid
+
+        // Send email verification
+        try await result.user.sendEmailVerification()
 
         let user = AppUser(
             id: uid,
@@ -31,10 +35,17 @@ final class AuthService {
             preferredLanguageCode: preferredLanguageCode,
             role: role,
             subscriptionPlan: subscriptionPlan,
+            guideProfileCreated: role == .guide ? false : nil,
+            guideApproved: role == .guide ? false : nil,
+            hostApproved: role == .host ? false : nil,
+            sellerTier: nil,
             disabled: false,
+            acceptedTermsVersion: acceptedTermsVersion,
+            acceptedTermsAt: Date(),
             photoURL: nil,
-            createdAt: Date(), guideApproved: false, guideProfileCreated: false
+            createdAt: Date()
         )
+
         try await FirestoreService.shared.createUser(user)
         return uid
     }
@@ -43,11 +54,21 @@ final class AuthService {
         _ = try await Auth.auth().signIn(withEmail: email, password: password)
     }
 
+    func reloadCurrentUser() async throws {
+        guard let u = Auth.auth().currentUser else { return }
+        try await u.reload()
+    }
+
+    func resendEmailVerification() async throws {
+        guard let u = Auth.auth().currentUser else { return }
+        try await u.sendEmailVerification()
+    }
+
     func signOut() throws {
         try Auth.auth().signOut()
     }
 
-    // Apple sign-in: default to traveler role, user can upgrade later in account settings
+    // Apple Sign In
     func signInWithApple(authorization: ASAuthorization, rawNonce: String) async throws {
         guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
             throw NSError(domain: "AuthService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid Apple credential"])
@@ -58,25 +79,21 @@ final class AuthService {
             throw NSError(domain: "AuthService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unable to fetch identity token"])
         }
 
-        let nonce = NonceGenerator.randomNonceString()
-        let hashedNonce = NonceGenerator.sha256(nonce)
-
         let credential = OAuthProvider.appleCredential(
             withIDToken: idTokenString,
-            rawNonce: hashedNonce,
+            rawNonce: rawNonce,
             fullName: appleIDCredential.fullName
         )
 
         let result = try await Auth.auth().signIn(with: credential)
         let uid = result.user.uid
 
-        // Create user document if missing
+        // Ensure user doc exists (default traveler)
         do {
             _ = try await FirestoreService.shared.getUser(uid: uid)
         } catch {
             let email = appleIDCredential.email ?? result.user.email
-            let fullName = [appleIDCredential.fullName?.givenName,
-                            appleIDCredential.fullName?.familyName]
+            let fullName = [appleIDCredential.fullName?.givenName, appleIDCredential.fullName?.familyName]
                 .compactMap { $0 }
                 .joined(separator: " ")
 
@@ -90,12 +107,16 @@ final class AuthService {
                 preferredLanguageCode: "en",
                 role: .traveler,
                 subscriptionPlan: .freeAds,
+                guideProfileCreated: nil,
+                guideApproved: nil,
+                sellerTier: nil,
                 disabled: false,
+                acceptedTermsVersion: nil,
+                acceptedTermsAt: nil,
                 photoURL: nil,
-                createdAt: Date(), guideApproved: false, guideProfileCreated: false            )
-
+                createdAt: Date()
+            )
             try await FirestoreService.shared.createUser(user)
         }
     }
 }
-

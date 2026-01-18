@@ -3,6 +3,7 @@ import FirebaseFirestore
 
 struct ChatView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var chatUnread: ChatUnreadService
     let thread: ChatThread
 
     @StateObject private var directory = ProfileDirectory()
@@ -78,7 +79,12 @@ struct ChatView: View {
                 AvatarView(url: counterpartPhotoURL, size: 28)
             }
         }
-        .onAppear { Task { await loadCounterpart() }; startListening() }
+        .onAppear {
+            // Opening the thread marks it read.
+            chatUnread.markRead(threadId: thread.id)
+            Task { await loadCounterpart() }
+            startListening()
+        }
         .onDisappear { listener?.remove() }
     }
 
@@ -86,6 +92,8 @@ struct ChatView: View {
         listener?.remove()
         listener = FirestoreService.shared.listenToMessages(threadId: thread.id) { msgs in
             self.messages = msgs
+            // Keep marking as read while the conversation is open.
+            self.chatUnread.markRead(threadId: thread.id)
         }
     }
 

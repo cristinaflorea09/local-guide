@@ -15,6 +15,13 @@ struct CheckoutView: View {
     @State private var presentingSheet = false
     @State private var showBreakdown = false
 
+    private var pricing: PricingBreakdown {
+        guard let slot else {
+            return PricingBreakdown(basePerPerson: tour.price, peopleCount: peopleCount, appliedPercentOff: 0, appliedLabel: nil, total: Double(peopleCount) * tour.price)
+        }
+        return PricingEngine.computeTotal(basePerPerson: tour.price, start: slot.start, peopleCount: peopleCount, smartPricing: tour.smartPricing)
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -39,12 +46,18 @@ struct CheckoutView: View {
 
                             Text("People: \(peopleCount)").foregroundStyle(.secondary)
 
+                            if pricing.appliedPercentOff > 0 {
+                                Text("Discount: -\(pricing.appliedPercentOff)% \((pricing.appliedLabel ?? ""))")
+                                    .foregroundStyle(Lx.gold)
+                                    .font(.subheadline.weight(.semibold))
+                            }
+
                             Divider().opacity(0.15)
 
                             HStack {
                                 Text("Total")
                                 Spacer()
-                                Text("€\(total, specifier: "%.2f")")
+                                Text("€\(pricing.total, specifier: "%.2f")")
                             }
                             .font(.headline)
 
@@ -81,7 +94,14 @@ struct CheckoutView: View {
         }
         .navigationTitle("Payment")
         .navigationBarTitleDisplayMode(.inline)
-        .paymentSheet(isPresented: $presentingSheet, paymentSheet: paymentSheet!, onCompletion: onPaymentCompletion)
+        .background(
+            Group {
+                if let sheet = paymentSheet {
+                    EmptyView()
+                        .paymentSheet(isPresented: $presentingSheet, paymentSheet: sheet, onCompletion: onPaymentCompletion)
+                }
+            }
+        )
         .sheet(isPresented: $showBreakdown) {
             PriceBreakdownSheet(pricePerPerson: tour.price, peopleCount: peopleCount, isPremium: appState.subscription.isPremium)
         }
@@ -98,20 +118,22 @@ struct CheckoutView: View {
 
         do {
             let bookingId = try await BookingService.shared.reserveSlotAndCreateBooking(
-                slotId: slot.id,
+                slot: slot,
                 tour: tour,
-                date: slot.start,
                 peopleCount: peopleCount,
-                total: total
+                total: pricing.total
             )
 
-            let cents = Int((total * 100.0).rounded())
-            let res = try await StripeService.shared.createPaymentIntent(amountCents: cents, currency: AppConfig.stripeCurrency, bookingId: bookingId)
+            let res = try await StripeService.shared.createPaymentIntent(bookingId: bookingId)
 
             var configuration = PaymentSheet.Configuration()
             configuration.merchantDisplayName = "LocalGuide"
-            paymentSheet = PaymentSheet(paymentIntentClientSecret: res.clientSecret, configuration: configuration)
-            presentingSheet = true
+            let sheet = PaymentSheet(paymentIntentClientSecret: res.clientSecret, configuration: configuration)
+            await MainActor.run {
+                paymentSheet = sheet
+                // Toggle on the next runloop to ensure the modifier is in the tree.
+                DispatchQueue.main.async { presentingSheet = true }
+            }
         } catch {
             message = error.localizedDescription
         }
@@ -130,3 +152,4 @@ struct CheckoutView: View {
         }
     }
 }
+

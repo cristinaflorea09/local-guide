@@ -60,8 +60,12 @@ struct SubscriptionView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Refresh") { Task { await appState.subscription.refreshEntitlements() } }
-                        .foregroundStyle(Lx.gold)
+                    Button("Restore") {
+                        Task {
+                            await appState.subscription.refreshEntitlements()
+                        }
+                    }
+                    .foregroundStyle(Lx.gold)
                 }
             }
         }

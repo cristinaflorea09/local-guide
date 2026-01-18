@@ -5,6 +5,8 @@ struct ExploreToursView: View {
     @State private var tours: [Tour] = []
     @State private var isLoading = false
     @State private var cityFilter = ""
+    @State private var sortOption: ListingSortOption = .bestRated
+    @State private var nextSlotByTourId: [String: Date] = [:]
     @StateObject private var directory = ProfileDirectory()
 
     var body: some View {
@@ -32,6 +34,22 @@ struct ExploreToursView: View {
                             }
                         }
 
+                        LuxuryCard {
+                            HStack {
+                                Text("Sort")
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Picker("Sort", selection: $sortOption) {
+                                    ForEach(ListingSortOption.allCases) { opt in
+                                        Text(opt.title).tag(opt)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .tint(Lx.gold)
+                            }
+                        }
+
                         if appState.subscription.isPremium {
                             LuxuryCard {
                                 HStack {
@@ -50,7 +68,7 @@ struct ExploreToursView: View {
                         if isLoading { ProgressView("Loading…").tint(Lx.gold).padding(.top, 6) }
 
                         LazyVStack(spacing: 14) {
-                            ForEach(tours) { tour in
+                            ForEach(sortedTours) { tour in
                                 NavigationLink {
                                     TourDetailsView(tour: tour)
                                 } label: {
@@ -71,13 +89,11 @@ struct ExploreToursView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { Task { await load() } } label: {
-                        Image(systemName: "arrow.clockwise").foregroundStyle(Lx.gold)
-                    }
-                }
             }
-            .onAppear { Task { await load() } }
+            .task { await load() }
+            .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
+                Task { await load() }
+            }
         }
     }
 
@@ -86,9 +102,74 @@ struct ExploreToursView: View {
         do {
             tours = try await FirestoreService.shared.getTours(city: cityFilter.isEmpty ? nil : cityFilter)
             for t in tours { await directory.loadGuideIfNeeded(t.guideId) }
+            await computeNextSlots()
         } catch {
             tours = []
         }
         isLoading = false
+    }
+
+    private var sortedTours: [Tour] {
+        switch sortOption {
+        case .newest:
+            return tours.sorted { $0.createdAt > $1.createdAt }
+        case .bestRated:
+            return tours.sorted {
+                let a = $0.ratingAvg ?? directory.guide($0.guideId)?.ratingAvg ?? 0
+                let b = $1.ratingAvg ?? directory.guide($1.guideId)?.ratingAvg ?? 0
+                if a == b {
+                    let ca = $0.ratingCount ?? directory.guide($0.guideId)?.ratingCount ?? 0
+                    let cb = $1.ratingCount ?? directory.guide($1.guideId)?.ratingCount ?? 0
+                    return ca > cb
+                }
+                return a > b
+            }
+        case .mostReviewed:
+            return tours.sorted {
+                let ca = $0.ratingCount ?? directory.guide($0.guideId)?.ratingCount ?? 0
+                let cb = $1.ratingCount ?? directory.guide($1.guideId)?.ratingCount ?? 0
+                if ca == cb {
+                    let a = $0.ratingAvg ?? directory.guide($0.guideId)?.ratingAvg ?? 0
+                    let b = $1.ratingAvg ?? directory.guide($1.guideId)?.ratingAvg ?? 0
+                    return a > b
+                }
+                return ca > cb
+            }
+        case .soonestAvailable:
+            return tours.sorted {
+                let da = nextSlotByTourId[$0.id] ?? .distantFuture
+                let db = nextSlotByTourId[$1.id] ?? .distantFuture
+                if da == db {
+                    let a = $0.ratingAvg ?? 0
+                    let b = $1.ratingAvg ?? 0
+                    return a > b
+                }
+                return da < db
+            }
+        case .topThisWeek:
+            return tours.sorted {_,_ in 
+                true
+            }
+        case .bestWeighted:
+            return tours.sorted {_,_ in 
+                true
+            }
+        }
+    }
+
+    private func computeNextSlots() async {
+        var map: [String: Date] = [:]
+        await withTaskGroup(of: (String, Date?).self) { g in
+            for t in tours {
+                g.addTask {
+                    let slot = try? await FirestoreService.shared.getNextAvailability(listingType: "tour", listingId: t.id)
+                    return (t.id, slot?.start)
+                }
+            }
+            for await (id, date) in g {
+                if let date { map[id] = date }
+            }
+        }
+        nextSlotByTourId = map
     }
 }

@@ -5,27 +5,54 @@ struct AuthLandingView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color.black, Color.black.opacity(0.92), Color.black.opacity(0.86)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
+            // Background "image" layer. Add an asset named `landing_bg` for best results.
+            Group {
+                if UIImage(named: "landing_bg") != nil {
+                    Image("landing_bg")
+                        .resizable()
+                        .scaledToFill()
+                        .ignoresSafeArea()
+                        .overlay(Color.black.opacity(0.55))
+                } else {
+                    LinearGradient(colors: [Color.black, Color.black.opacity(0.92), Color.black.opacity(0.86)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                        .ignoresSafeArea()
+
+                    // Subtle pattern to hint "maps + experiences"
+                    ZStack {
+                        Image(systemName: "map.fill")
+                            .font(.system(size: 220))
+                            .foregroundStyle(Lx.gold.opacity(0.08))
+                            .blur(radius: 0.5)
+                            .offset(x: 120, y: -160)
+
+                        Image(systemName: "figure.walk")
+                            .font(.system(size: 180))
+                            .foregroundStyle(.white.opacity(0.05))
+                            .offset(x: -130, y: 160)
+
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 120))
+                            .foregroundStyle(Lx.gold.opacity(0.06))
+                            .offset(x: -140, y: -80)
+                    }
+                }
+            }
 
             VStack(spacing: 18) {
                 Spacer()
 
                 VStack(spacing: 10) {
                     Text("LOCALGUIDE")
-                        .font(.system(size: 44, weight: .black, design: .rounded))
-                        .tracking(3.5)
-                        .foregroundStyle(
-                            LinearGradient(colors: [Lx.gold, .white.opacity(0.85), Lx.gold.opacity(0.8)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                        )
+                        .font(.system(size: 44, weight: .black, design: .serif))
+                        .tracking(3)
+                        .foregroundStyle(Lx.gold)
 
-                    Text("Luxury local experiences, curated by trusted hosts & guides.")
-                        .font(.subheadline)
+                    Text("Luxury local experiences by independent Guides & Hosts")
+                        .font(.callout.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.75))
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 22)
+                        .padding(.horizontal, 18)
                 }
 
                 LuxuryCard {
@@ -41,13 +68,11 @@ struct AuthLandingView: View {
 
                 Spacer()
 
-                Text("By continuing you agree to our Terms & Privacy Policy.")
-                    .font(.caption2)
+                Text("By continuing you agree to our Terms & Conditions.")
+                    .font(.caption)
                     .foregroundStyle(.white.opacity(0.55))
                     .padding(.bottom, 10)
             }
-            .padding(.top, 12)
         }
-        .navigationBarTitleDisplayMode(.inline)
     }
 }

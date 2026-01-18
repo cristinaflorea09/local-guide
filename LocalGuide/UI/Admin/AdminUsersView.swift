@@ -25,12 +25,9 @@ struct AdminUsersView: View {
                 if !isLoading && users.isEmpty { ContentUnavailableView("No users", systemImage: "person") }
             }
             .navigationTitle("Users")
-            .toolbar {
-                Button("Refresh") { Task { await load() } }
-            }
+        }
             .onAppear { Task { await load() } }
         }
-    }
 
     private func load() async {
         isLoading = true
@@ -38,8 +35,12 @@ struct AdminUsersView: View {
 
         do {
             users = try await FirestoreService.shared.listUsers()
+            print(users)
+
         } catch {
             self.error = error.localizedDescription
+            print(self.error)
+
         }
 
         isLoading = false

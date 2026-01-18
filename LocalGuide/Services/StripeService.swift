@@ -13,13 +13,10 @@ final class StripeService {
     }
 
     // Calls Firebase Function to create PaymentIntent and returns client secret + intent id.
-    func createPaymentIntent(amountCents: Int, currency: String, bookingId: String) async throws -> (clientSecret: String, paymentIntentId: String) {
+    /// Creates a PaymentIntent server-side based on the stored booking (tamper-proof).
+    func createPaymentIntent(bookingId: String) async throws -> (clientSecret: String, paymentIntentId: String) {
         let fn = FirebaseManager.shared.functions.httpsCallable("createPaymentIntent")
-        let res = try await fn.call([
-            "amount": amountCents,
-            "currency": currency,
-            "bookingId": bookingId
-        ])
+        let res = try await fn.call(["bookingId": bookingId])
         guard let dict = res.data as? [String: Any],
               let clientSecret = dict["clientSecret"] as? String,
               let paymentIntentId = dict["paymentIntentId"] as? String else {

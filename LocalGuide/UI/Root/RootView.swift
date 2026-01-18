@@ -5,7 +5,10 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if let user = appState.session.currentUser {
+            // Email verification is required for non-admin accounts.
+            if appState.session.firebaseUser != nil && !appState.session.isEmailVerified && appState.session.authRoleHint != .admin {
+                VerifyEmailView()
+            } else if let user = appState.session.currentUser {
                 if user.disabled {
                     DisabledAccountView()
                 } else {
@@ -21,9 +24,11 @@ struct RootView: View {
                     }
                 }
             } else {
-                AuthFlowView()
+                AuthFlowView(appState: appState, startAt: appState.session.startAuthAtLoginNext ? .login : nil)
             }
         }
+        // Force a full SwiftUI tree refresh when language changes.
+        .id(appState.settings.languageCode)
         .environment(\.locale, Locale(identifier: appState.settings.languageCode))
         .task {
             appState.session.startListening()
@@ -33,7 +38,16 @@ struct RootView: View {
         }
         .onChange(of: appState.session.currentUser?.preferredLanguageCode) { newCode in
             if let code = newCode, !code.isEmpty {
-                appState.settings.languageCode = code
+                appState.settings.setLanguage(code)
+            }
+        }
+        .onChange(of: appState.session.firebaseUser) { newVal in
+            // Once we reach the logged-out state, consume the flag.
+            if newVal == nil && appState.session.startAuthAtLoginNext {
+                // leave it set for one render cycle; then clear.
+                DispatchQueue.main.async {
+                    appState.session.startAuthAtLoginNext = false
+                }
             }
         }
     }

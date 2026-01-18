@@ -44,11 +44,6 @@ struct MapToursView: View {
             }
             .navigationTitle("Map")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { Task { await load() } } label: {
-                        Image(systemName: "arrow.clockwise").foregroundStyle(Lx.gold)
-                    }
-                }
             }
             .onAppear { Task { await load() } }
         }

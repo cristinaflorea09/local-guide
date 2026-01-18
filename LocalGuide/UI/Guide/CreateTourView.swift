@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CreateTourView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
 
     @State private var title = ""
     @State private var description = ""
@@ -10,9 +11,24 @@ struct CreateTourView: View {
     @State private var durationMinutes = 120
     @State private var price = "50"
     @State private var maxPeople = 6
+    @State private var category = "Sightseeing"
+    @State private var difficulty = "Easy"
+    @State private var physicalEffort = "Low"
+    @State private var authenticityScore: Double = 80
     @State private var latitude = ""
     @State private var longitude = ""
     @State private var active = true
+
+    @State private var cancellationPolicy = CancellationPolicy()
+
+    // Smart pricing / promo
+    @State private var promoPercent = 0
+    @State private var promoStart = Date()
+    @State private var promoEnd = Date().addingTimeInterval(7*24*3600)
+    @State private var lastMinuteHours = 24
+    @State private var lastMinutePercent = 0
+    @State private var groupMinPeople = 4
+    @State private var groupPercent = 0
 
     @State private var coverImage: UIImage?
     @State private var isLoading = false
@@ -33,6 +49,35 @@ struct CreateTourView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             LuxuryTextField(title: "Title", text: $title)
                             LuxuryTextField(title: "Description", text: $description)
+
+                            Text("Category")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Picker("Category", selection: $category) {
+                                ForEach(["Sightseeing","Food","Nature","Art","History","Nightlife","Wellness","Adventure"], id: \.self) { c in
+                                    Text(c).tag(c)
+                                }
+                            }
+                            .pickerStyle(.menu)
+
+                            HStack {
+                                Picker("Difficulty", selection: $difficulty) {
+                                    ForEach(["Easy","Medium","Hard"], id: \.self) { Text($0).tag($0) }
+                                }
+                                .pickerStyle(.menu)
+
+                                Picker("Physical effort", selection: $physicalEffort) {
+                                    ForEach(["Low","Moderate","High"], id: \.self) { Text($0).tag($0) }
+                                }
+                                .pickerStyle(.menu)
+                            }
+
+                            VStack(alignment: .leading) {
+                                Text("Authenticity score: \(Int(authenticityScore))")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Slider(value: $authenticityScore, in: 0...100, step: 1)
+                            }
                             Text("Location").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
 
                             CountryPicker(country: $country)
@@ -63,6 +108,28 @@ struct CreateTourView: View {
                             Stepper("Max people: \(maxPeople)", value: $maxPeople, in: 1...30)
                             LuxuryTextField(title: "Price (€)", text: $price, keyboard: .decimalPad)
                             Toggle("Active", isOn: $active)
+
+                            Divider().opacity(0.15)
+                            Text("Cancellation policy").font(.headline)
+                            Stepper("Free cancellation: \(cancellationPolicy.freeCancelHours)h", value: $cancellationPolicy.freeCancelHours, in: 1...720)
+                            Stepper("Refund after deadline: \(cancellationPolicy.refundPercentAfterDeadline)%", value: $cancellationPolicy.refundPercentAfterDeadline, in: 0...100)
+                            Stepper("No-show refund: \(cancellationPolicy.noShowRefundPercent)%", value: $cancellationPolicy.noShowRefundPercent, in: 0...100)
+
+                            Divider().opacity(0.15)
+                            Text("Smart pricing & promos").font(.headline)
+
+                            Stepper("Promo discount: \(promoPercent)%", value: $promoPercent, in: 0...80)
+                            if promoPercent > 0 {
+                                DatePicker("Promo start", selection: $promoStart, displayedComponents: [.date])
+                                DatePicker("Promo end", selection: $promoEnd, displayedComponents: [.date])
+                            }
+
+                            Stepper("Last-minute window: \(lastMinuteHours)h", value: $lastMinuteHours, in: 1...168)
+                            Stepper("Last-minute discount: \(lastMinutePercent)%", value: $lastMinutePercent, in: 0...80)
+
+                            Stepper("Group min people: \(groupMinPeople)", value: $groupMinPeople, in: 2...30)
+                            Stepper("Group discount: \(groupPercent)%", value: $groupPercent, in: 0...80)
+
                         }
                     }
 
@@ -111,6 +178,16 @@ struct CreateTourView: View {
             let url = try await StorageService.shared.uploadJPEG(coverImage, path: coverPath)
 
             // 2) Create tour with coverPhotoURL
+            let sp = SmartPricingBuilder.build(
+                promoPercent: promoPercent,
+                promoStart: promoStart,
+                promoEnd: promoEnd,
+                lastMinuteHours: lastMinuteHours,
+                lastMinutePercent: lastMinutePercent,
+                groupMinPeople: groupMinPeople,
+                groupPercent: groupPercent
+            )
+
             let tour = Tour(
                 id: UUID().uuidString,
                 guideId: uid,
@@ -123,6 +200,12 @@ struct CreateTourView: View {
                 durationMinutes: durationMinutes,
                 price: Double(price) ?? 0,
                 maxPeople: maxPeople,
+                category: category,
+                difficulty: difficulty,
+                physicalEffort: physicalEffort,
+                authenticityScore: Int(authenticityScore),
+                smartPricing: sp,
+                cancellationPolicy: cancellationPolicy,
                 active: active,
                 createdAt: Date()
             )
@@ -130,6 +213,11 @@ struct CreateTourView: View {
 
             Haptics.success()
             message = "Tour published ✅"
+
+            // Return to the Tours view after publishing.
+            await MainActor.run {
+                dismiss()
+            }
 
             // reset
             title = ""

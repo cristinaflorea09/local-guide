@@ -58,32 +58,7 @@ struct GuideGateView: View {
                         }
                         .padding(18)
                     } else {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Text("Guide Home")
-                                    .font(.largeTitle.bold())
-                                    .foregroundStyle(.white)
-                                    .padding(.top, 8)
-
-                                LuxuryCard {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("You’re approved ✅")
-                                            .font(.headline)
-                                        Text("Create tours, manage availability, and chat with travelers.")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                NavigationLink { CreateTourView() } label: { Text("Create a tour") }
-                                    .buttonStyle(LuxuryPrimaryButtonStyle())
-
-                                NavigationLink { GuideProfileEditView() } label: { Text("Edit profile") }
-                                    .buttonStyle(LuxurySecondaryButtonStyle())
-
-                                Spacer(minLength: 10)
-                            }
-                            .padding(18)
-                        }
+                        GuideDashboardView()
                     }
                 } else {
                     Text("Please login.")

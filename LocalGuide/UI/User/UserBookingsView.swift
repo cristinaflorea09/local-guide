@@ -8,12 +8,20 @@ struct UserBookingsView: View {
     var body: some View {
         NavigationStack {
             List(bookings) { b in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Status: \(b.status.rawValue)").font(.headline)
-                    Text("Total: €\(b.totalPrice, specifier: "%.2f") • People: \(b.peopleCount)")
-                        .foregroundStyle(.secondary)
-                    Text("Date: \(b.date.formatted(date: .abbreviated, time: .shortened))")
-                        .foregroundStyle(.secondary)
+                NavigationLink {
+                    UserBookingDetailView(booking: b)
+                } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(b.effectiveListingType.capitalized)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(Lx.gold)
+                        Text("Status: \(b.status.rawValue)")
+                            .font(.headline)
+                        Text("Total: \(b.currency.uppercased()) \(String(format: "%.2f", b.totalPrice)) • People: \(b.peopleCount)")
+                            .foregroundStyle(.secondary)
+                        Text("Start: \(b.startDate.formatted(date: .abbreviated, time: .shortened))")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .overlay {
@@ -21,10 +29,9 @@ struct UserBookingsView: View {
                 if !isLoading && bookings.isEmpty { ContentUnavailableView("No bookings yet", systemImage: "ticket") }
             }
             .navigationTitle("My Bookings")
-            .toolbar { Button("Refresh") { Task { await load() } } }
+            }
             .onAppear { Task { await load() } }
         }
-    }
 
     private func load() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
@@ -33,3 +40,4 @@ struct UserBookingsView: View {
         isLoading = false
     }
 }
+

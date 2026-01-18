@@ -18,10 +18,10 @@ struct AdminStatsView: View {
             }
             .overlay { if isLoading { ProgressView("Loading…") } }
             .navigationTitle("Stats")
-            .toolbar { Button("Refresh") { Task { await load() } } }
+        }
             .onAppear { Task { await load() } }
         }
-    }
+    
 
     private func load() async {
         isLoading = true

@@ -2,7 +2,7 @@ import SwiftUI
 import AuthenticationServices
 
 struct AppleSignInButtonView: View {
-    var onCompletion: (Result<ASAuthorization, Error>, String) -> Void
+    var onCompletion: ((Result<ASAuthorization, Error>, String?) -> Void)?
 
     @State private var currentNonce: String?
 
@@ -14,17 +14,10 @@ struct AppleSignInButtonView: View {
             request.requestedScopes = [.fullName, .email]
             request.nonce = NonceGenerator.sha256(nonce)
         } onCompletion: { result in
-            guard let nonce = currentNonce else {
-                onCompletion(.failure(NSError(
-                    domain: "AppleSignIn",
-                    code: 0,
-                    userInfo: [NSLocalizedDescriptionKey: "Missing nonce"]
-                )), "")
-                return
-            }
-            onCompletion(result, nonce)
+            onCompletion?(result, currentNonce)
         }
-        .signInWithAppleButtonStyle(.whiteOutline)
-        .frame(height: 50)
+        .signInWithAppleButtonStyle(.black)
+        .frame(height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }

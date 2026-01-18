@@ -2,9 +2,14 @@ import Foundation
 
 enum CountryCityData {
     static let countries: [String] = {
-        let regions = Locale.Region.isoRegions
         let locale = Locale.current
-        let names = regions.compactMap { locale.localizedString(forRegionCode: $0.identifier) }
+        // Build localized country names from region codes
+        let names: [String] = Locale.Region.isoRegions.compactMap { region in
+            // Use the region's identifier (e.g., "US", "GB") to localize the name
+            let code = region.identifier
+            return locale.localizedString(forRegionCode: code)
+        }
+        // Deduplicate and sort
         return Array(Set(names)).sorted()
     }()
 

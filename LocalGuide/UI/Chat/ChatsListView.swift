@@ -1,9 +1,10 @@
 import SwiftUI
 
-enum ChatMode { case traveler, guide }
+enum ChatMode { case traveler, seller }
 
 struct ChatsListView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var chatUnread: ChatUnreadService
     let mode: ChatMode
 
     @State private var threads: [ChatThread] = []
@@ -43,6 +44,13 @@ struct ChatsListView: View {
                                                     .foregroundStyle(.secondary)
                                             }
                                             Spacer()
+                                            if let uid = appState.session.firebaseUser?.uid,
+                                               chatUnread.isUnread(thread: t, currentUid: uid) {
+                                                Circle()
+                                                    .fill(Lx.gold)
+                                                    .frame(width: 10, height: 10)
+                                                    .padding(.trailing, 6)
+                                            }
                                             Image(systemName: "chevron.right").foregroundStyle(.secondary)
                                         }
                                     }
@@ -61,13 +69,11 @@ struct ChatsListView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { Task { await load() } } label: {
-                        Image(systemName: "arrow.clockwise").foregroundStyle(Lx.gold)
-                    }
-                }
             }
-            .onAppear { Task { await load() } }
+            .task { await load() }
+            .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
+                Task { await load() }
+            }
         }
     }
 
@@ -91,7 +97,7 @@ struct ChatsListView: View {
             switch mode {
             case .traveler:
                 await directory.loadGuideIfNeeded(t.guideId)
-            case .guide:
+            case .seller:
                 await directory.loadUserIfNeeded(t.userId)
             }
         }
@@ -101,7 +107,7 @@ struct ChatsListView: View {
         switch mode {
         case .traveler:
             return directory.guide(thread.guideId)?.displayName ?? "Guide"
-        case .guide:
+        case .seller:
             return directory.user(thread.userId)?.email ?? "Traveler"
         }
     }
@@ -110,8 +116,9 @@ struct ChatsListView: View {
         switch mode {
         case .traveler:
             return directory.guide(thread.guideId)?.photoURL
-        case .guide:
+        case .seller:
             return nil
         }
     }
 }
+

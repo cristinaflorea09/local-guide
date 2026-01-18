@@ -4,16 +4,52 @@ struct AdminHomeView: View {
     var body: some View {
         TabView {
             AdminUsersView()
-                .tabItem { Label("Users", systemImage: "person.3") }
+                .tabItem {
+                    Image(systemName: "person.3")
+                    Text("Users")
+                }
 
             AdminGuidesView()
-                .tabItem { Label("Guides", systemImage: "person.badge.checkmark") }
+                .tabItem {
+                    Image(systemName: "person.badge.checkmark")
+                    Text("Guides")
+                }
+
+            AdminApprovalsView()
+                .tabItem {
+                    Image(systemName: "checkmark.seal")
+                    Text("Approvals")
+                }
+
+            AdminModerationView()
+                .tabItem {
+                    Image(systemName: "shield.lefthalf.filled")
+                    Text("Moderation")
+                }
 
             AdminStatsView()
-                .tabItem { Label("Stats", systemImage: "chart.bar") }
+                .tabItem {
+                    Image(systemName: "chart.bar")
+                    Text("Stats")
+                }
+
+            AdminFinanceView()
+                .tabItem {
+                    Image(systemName: "creditcard")
+                    Text("Finance")
+                }
 
             AccountView()
-                .tabItem { Label("Account", systemImage: "person") }
+                .tabItem {
+                    Image(systemName: "person")
+                    Text("Account")
+                }
+
+            SettingsView()
+                .tabItem {
+                    Image(systemName: "gearshape")
+                    Text("Settings")
+                }
         }
     }
 }

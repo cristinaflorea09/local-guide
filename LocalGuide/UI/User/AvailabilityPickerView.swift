@@ -63,7 +63,11 @@ struct AvailabilityPickerView: View {
         let startOfDay = cal.startOfDay(for: selectedDate)
         let endOfDay = cal.date(byAdding: .day, value: 1, to: startOfDay) ?? selectedDate
         do {
-            slots = try await FirestoreService.shared.getAvailabilityForGuide(guideId: guideId)
+            let all = try await FirestoreService.shared.getAvailabilityForGuide(guideId: guideId)
+            // Filter to selected day + open slots only
+            slots = all.filter { s in
+                s.status == .open && s.start >= startOfDay && s.start < endOfDay
+            }.sorted { $0.start < $1.start }
         } catch {
             slots = []
         }

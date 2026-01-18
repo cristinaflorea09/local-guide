@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFunctions
 import AuthenticationServices
 
 struct LoginView: View {
@@ -13,7 +14,7 @@ struct LoginView: View {
             Color.black.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Welcome back")
+                    Text("auth_welcome_back")
                         .font(.title.bold())
                         .foregroundStyle(.white)
 
@@ -21,7 +22,7 @@ struct LoginView: View {
                     LuxuryTextField(title: "Password", text: $password, secure: true)
 
                     Button { Task { await login() } } label: {
-                        if isLoading { ProgressView() } else { Text("Login") }
+                        if isLoading { ProgressView() } else { Text("auth_login") }
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
                     .disabled(isLoading || email.isEmpty || password.isEmpty)
@@ -42,6 +43,10 @@ struct LoginView: View {
                 }
                 .padding(18)
             }
+            LanguageSwitcherOverlay()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(.trailing, 12)
+                .padding(.top, 10)
         }
         .navigationTitle("Login")
         .navigationBarTitleDisplayMode(.inline)
@@ -52,7 +57,9 @@ struct LoginView: View {
         errorMessage = nil
         do {
             try await AuthService.shared.login(email: email, password: password)
-            // RootView listens to auth state; once it switches to Home, AuthFlow disappears.
+            // Ensure we have fresh email verification state.
+            try? await AuthService.shared.reloadCurrentUser()
+            // RootView handles email verification gating.
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -60,22 +67,17 @@ struct LoginView: View {
     }
 
     private func handleApple(_ result: Result<ASAuthorization, Error>, nonce: String?) async {
+        errorMessage = nil
         switch result {
-        case .success(let authorization):
+        case .success(let auth):
             guard let nonce else {
-                // nonce missing = request didn’t run properly
+                errorMessage = "Apple Sign-In failed. Please try again."
                 return
             }
-            do {
-                try await AuthService.shared.signInWithApple(authorization: authorization, rawNonce: nonce)
-            } catch {
-                // show error
-            }
-
+            do { try await AuthService.shared.signInWithApple(authorization: auth, rawNonce: nonce) }
+            catch { errorMessage = error.localizedDescription }
         case .failure(let error):
-            // show error
-            print(error.localizedDescription)
+            errorMessage = error.localizedDescription
         }
     }
-
 }

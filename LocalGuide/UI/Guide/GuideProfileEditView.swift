@@ -1,15 +1,23 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct GuideProfileEditView: View {
     @EnvironmentObject var appState: AppState
 
     @State private var displayName = ""
+    @State private var country = ""
     @State private var city = ""
     @State private var languages = ""
     @State private var bio = ""
 
     @State private var profileImage: UIImage?
     @State private var remotePhotoURL: String?
+    @State private var remoteAttestationURL: String?
+
+    @State private var showAttestationPicker = false
+    @State private var attestationData: Data?
+    @State private var attestationFileName: String?
+    @State private var attestationContentType: String = "application/pdf"
 
     @State private var isLoading = false
     @State private var message: String?
@@ -20,7 +28,7 @@ struct GuideProfileEditView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("Edit Profile")
+                    Text("Guide Profile")
                         .font(.largeTitle.bold())
                         .foregroundStyle(.white)
                         .padding(.top, 8)
@@ -33,90 +41,122 @@ struct GuideProfileEditView: View {
 
                             ImagePicker(image: $profileImage)
 
-                            HStack {
-                                Spacer()
-                                avatarView
-                                Spacer()
+                            if let img = profileImage {
+                                HStack { Spacer()
+                                    Image(uiImage: img)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 92, height: 92)
+                                        .clipShape(Circle())
+                                        .overlay(Circle().stroke(Lx.gold.opacity(0.22), lineWidth: 1))
+                                    Spacer()
+                                }
+                            } else if let remotePhotoURL, let url = URL(string: remotePhotoURL) {
+                                HStack { Spacer()
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .success(let img):
+                                            img.resizable().scaledToFill()
+                                        default:
+                                            Circle().fill(.white.opacity(0.08))
+                                        }
+                                    }
+                                    .frame(width: 92, height: 92)
+                                    .clipShape(Circle())
+                                    .overlay(Circle().stroke(Lx.gold.opacity(0.22), lineWidth: 1))
+                                    Spacer()
+                                }
                             }
 
                             Divider().opacity(0.15)
 
                             LuxuryTextField(title: "Display name", text: $displayName)
-                            LuxuryTextField(title: "City", text: $city)
+                            Text("Location").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            CountryPicker(country: $country)
+                            CityPicker(city: $city, country: country)
+
                             LuxuryTextField(title: "Languages (comma separated)", text: $languages)
                             LuxuryTextField(title: "Bio", text: $bio)
+
+                            Divider().opacity(0.15)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Guide attestation")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+
+                                if remoteAttestationURL != nil {
+                                    Text("Attestation uploaded ✅")
+                                        .font(.caption)
+                                        .foregroundStyle(.white.opacity(0.7))
+                                }
+
+                                Button {
+                                    showAttestationPicker = true
+                                } label: {
+                                    Text(attestationFileName == nil ? "Upload / replace attestation" : "Selected: \(attestationFileName!)")
+                                }
+                                .buttonStyle(LuxurySecondaryButtonStyle())
+                            }
                         }
                     }
 
-                    if let message {
-                        Text(message)
-                            .foregroundStyle(.white.opacity(0.75))
-                    }
+                    if let message { Text(message).foregroundStyle(.white.opacity(0.75)) }
 
-                    Button {
-                        Haptics.medium()
-                        Task { await save() }
-                    } label: {
+                    Button { Task { await save() } } label: {
                         if isLoading { ProgressView().tint(.black) } else { Text("Save changes") }
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
-                    .disabled(isLoading || displayName.isEmpty || city.isEmpty)
+                    .disabled(isLoading)
 
                     Spacer(minLength: 12)
                 }
                 .padding(18)
             }
         }
-        .navigationTitle("Profile")
+        .fileImporter(isPresented: $showAttestationPicker,
+                      allowedContentTypes: [UTType.pdf, UTType.image],
+                      allowsMultipleSelection: false) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                do {
+                    let data = try Data(contentsOf: url)
+                    attestationData = data
+                    attestationFileName = url.lastPathComponent
+                    if url.pathExtension.lowercased() == "pdf" {
+                        attestationContentType = "application/pdf"
+                    } else if url.pathExtension.lowercased() == "png" {
+                        attestationContentType = "image/png"
+                    } else {
+                        attestationContentType = "image/jpeg"
+                    }
+                } catch {
+                    message = error.localizedDescription
+                }
+            case .failure(let error):
+                message = error.localizedDescription
+            }
+        }
+        .navigationTitle("Guide")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
     }
 
-    @ViewBuilder
-    private var avatarView: some View {
-        let size: CGFloat = 96
-        ZStack {
-            Circle().fill(Color.white.opacity(0.10)).frame(width: size, height: size)
-                .overlay(Circle().stroke(Lx.gold.opacity(0.22), lineWidth: 1))
-
-            if let img = profileImage {
-                Image(uiImage: img)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-            } else if let url = remotePhotoURL, let u = URL(string: url) {
-                AsyncImage(url: u) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img.resizable().scaledToFill()
-                    default:
-                        Image(systemName: "person.fill").foregroundStyle(Lx.gold)
-                    }
-                }
-                .frame(width: size, height: size)
-                .clipShape(Circle())
-            } else {
-                Image(systemName: "person.fill").foregroundStyle(Lx.gold)
-            }
-        }
-    }
-
     private func load() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
-        isLoading = true
-        message = nil
         do {
             let p = try await FirestoreService.shared.getGuideProfile(guideId: uid)
             displayName = p.displayName
+            country = p.country
             city = p.city
             languages = p.languages.joined(separator: ", ")
             bio = p.bio
             remotePhotoURL = p.photoURL
+            remoteAttestationURL = p.attestationURL
         } catch {
             message = error.localizedDescription
         }
-        isLoading = false
     }
 
     private func save() async {
@@ -125,35 +165,30 @@ struct GuideProfileEditView: View {
         message = nil
 
         do {
-            var photoURL = remotePhotoURL
+            var p = try await FirestoreService.shared.getGuideProfile(guideId: uid)
+
+            p.displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            p.country = country
+            p.city = city
+            p.languages = languages.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            p.bio = bio
+
             if let profileImage {
-                photoURL = try await StorageService.shared.uploadGuidePhoto(uid: uid, image: profileImage)
+                p.photoURL = try await StorageService.shared.uploadGuidePhoto(uid: uid, image: profileImage)
             }
 
-            let langs = languages
-                .split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
+            if let attestationData, let attestationFileName {
+                p.attestationURL = try await StorageService.shared.uploadGuideAttestation(
+                    uid: uid,
+                    data: attestationData,
+                    fileName: attestationFileName,
+                    contentType: attestationContentType
+                )
+            }
 
-            // Keep rating fields as-is by fetching existing
-            let existing = try await FirestoreService.shared.getGuideProfile(guideId: uid)
-
-            let updated = GuideProfile(
-                id: uid,
-                displayName: displayName,
-                city: city,
-                languages: langs.isEmpty ? ["English"] : langs,
-                bio: bio,
-                photoURL: photoURL,
-                ratingAvg: existing.ratingAvg,
-                ratingCount: existing.ratingCount,
-                createdAt: existing.createdAt
-            )
-            try await FirestoreService.shared.updateGuideProfile(updated)
-            remotePhotoURL = photoURL
-            profileImage = nil
-            Haptics.success()
+            try await FirestoreService.shared.updateGuideProfile(p)
             message = "Saved ✅"
+            Haptics.success()
         } catch {
             message = error.localizedDescription
         }

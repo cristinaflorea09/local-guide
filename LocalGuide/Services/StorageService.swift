@@ -9,8 +9,37 @@ final class StorageService {
     private let storage = Storage.storage()
 
     /// Uploads guide profile photo (JPEG) to `guides/{guideId}/profile.jpg` and returns URL.
+    
+    /// Uploads guide attestation (PDF/JPG/PNG) to `guides/{guideId}/attestation/{fileName}` and returns URL.
+    func uploadGuideAttestation(uid: String, data: Data, fileName: String, contentType: String) async throws -> String {
+        let safeName = fileName.replacingOccurrences(of: " ", with: "_")
+        let ref = storage.reference(withPath: "guides/\(uid)/attestation/\(safeName)")
+        let metadata = StorageMetadata()
+        metadata.contentType = contentType
+
+        _ = try await ref.putDataAsync(data, metadata: metadata)
+        let url = try await ref.downloadURL()
+        return url.absoluteString
+    }
+
     func uploadGuidePhoto(uid: String, image: UIImage) async throws -> String {
         let url = try await uploadJPEG(image, path: "guides/\(uid)/profile.jpg", quality: 0.85)
+        return url.absoluteString
+    }
+
+    func uploadUserPhoto(uid: String, image: UIImage) async throws -> String {
+        let url = try await uploadJPEG(image, path: "users/\(uid)/profile.jpg", quality: 0.85)
+        return url.absoluteString
+    }
+
+    /// Uploads business registration certificate (PDF/JPG/PNG) to `sellers/{uid}/business/{fileName}` and returns URL.
+    func uploadBusinessCertificate(uid: String, data: Data, fileName: String, contentType: String) async throws -> String {
+        let safeName = fileName.replacingOccurrences(of: " ", with: "_")
+        let ref = storage.reference(withPath: "sellers/\(uid)/business/\(safeName)")
+        let metadata = StorageMetadata()
+        metadata.contentType = contentType
+        _ = try await ref.putDataAsync(data, metadata: metadata)
+        let url = try await ref.downloadURL()
         return url.absoluteString
     }
 

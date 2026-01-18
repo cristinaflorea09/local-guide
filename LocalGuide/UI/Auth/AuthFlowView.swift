@@ -17,6 +17,8 @@ final class AuthRouter: ObservableObject {
 
 struct AuthFlowView: View {
     @StateObject var router = AuthRouter()
+    let appState: AppState
+    var startAt: AuthRoute? = nil
 
     var body: some View {
         NavigationStack(path: $router.path) {
@@ -31,9 +33,14 @@ struct AuthFlowView: View {
                     case .rolePicker:
                         RolePickerView().environmentObject(router)
                     case .register(let role):
-                        RegisterView(role: role).environmentObject(router)
+                        RegisterView(appState: appState, role: role).environmentObject(router)
                     }
                 }
+        }
+        .onAppear {
+            if let startAt, router.path.isEmpty {
+                router.path = [startAt]
+            }
         }
     }
 }
