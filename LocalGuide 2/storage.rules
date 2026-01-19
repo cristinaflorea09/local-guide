@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+
+    // Tour covers
+    match /tours/{guideId}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && request.auth.uid == guideId;
+    }
+
+    // User profile photos
+    match /users/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Guide assets (profile photo, attestation, etc)
+    match /guides/{guideId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if signedIn() && request.auth.uid == guideId;
+    }
+
+    // Host assets (optional)
+    match /hosts/{hostId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if signedIn() && request.auth.uid == hostId;
+    }
+  }
+}

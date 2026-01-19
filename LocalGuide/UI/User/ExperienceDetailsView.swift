@@ -8,6 +8,9 @@ struct ExperienceDetailsView: View {
     @State private var reviews: [Review] = []
     @State private var loading = false
 
+    @State private var chatThread: ChatThread?
+    @State private var goToCheckout = false
+
     @State private var peopleCount = 1
     @State private var selectedDay = Date()
     @State private var selectedSlot: AvailabilitySlot?
@@ -34,6 +37,8 @@ struct ExperienceDetailsView: View {
                                 }
                                 Spacer()
                             }
+        // Present details as a full page by hiding the tab bar.
+        .toolbar(.hidden, for: .tabBar)
                         }
                     }
 
@@ -118,8 +123,9 @@ struct ExperienceDetailsView: View {
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
 
-                    NavigationLink {
-                        CheckoutExperienceView(experience: experience, slot: selectedSlot, peopleCount: peopleCount, total: Double(peopleCount) * experience.price)
+                    Button {
+                        Haptics.medium()
+                        goToCheckout = true
                     } label: {
                         Text("Continue to payment")
                     }
@@ -136,6 +142,21 @@ struct ExperienceDetailsView: View {
         .navigationTitle("Details")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadExtras() }
+        .navigationDestination(isPresented: $goToCheckout) {
+            CheckoutExperienceView(experience: experience, slot: selectedSlot, peopleCount: peopleCount, total: Double(peopleCount) * experience.price)
+        }
+        .fullScreenCover(item: $chatThread) { thread in
+            NavigationStack {
+                ChatView(thread: thread)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Close") { chatThread = nil }
+                                .foregroundStyle(Lx.gold)
+                        }
+                    }
+            }
+        }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private func loadExtras() async {
@@ -148,6 +169,9 @@ struct ExperienceDetailsView: View {
 
     private func openChat() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
-        do { _ = try await FirestoreService.shared.getOrCreateThread(userId: uid, guideId: experience.hostId, tourId: experience.id) } catch { }
+        do {
+            let thread = try await FirestoreService.shared.getOrCreateThread(userId: uid, guideId: experience.hostId, tourId: experience.id)
+            await MainActor.run { chatThread = thread }
+        } catch { }
     }
 }

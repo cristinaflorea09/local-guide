@@ -66,9 +66,22 @@
 		FFA819802F1A8C78004D9CA4 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FF2FD4EF2F1ECA2200E0988D /* Exceptions for "LocalGuide" folder in "LocalGuide" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = FF80118C2F1682F100E18390 /* LocalGuide */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		FF80118F2F1682F100E18390 /* LocalGuide */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FF2FD4EF2F1ECA2200E0988D /* Exceptions for "LocalGuide" folder in "LocalGuide" target */,
+			);
 			path = LocalGuide;
 			sourceTree = "<group>";
 		};
@@ -514,6 +527,10 @@
 				DEVELOPMENT_ASSET_PATHS = "\"LocalGuide/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LocalGuide/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to show nearby tours and experiences on the\nWe use your location to show nearby tours and experiences on the\nWe use your location to show nearby tours and experiences on the map";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -543,6 +560,10 @@
 				DEVELOPMENT_ASSET_PATHS = "\"LocalGuide/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LocalGuide/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "";
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to show nearby tours and experiences on the\nWe use your location to show nearby tours and experiences on the\nWe use your location to show nearby tours and experiences on the map";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

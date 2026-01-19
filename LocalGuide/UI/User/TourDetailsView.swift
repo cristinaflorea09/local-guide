@@ -14,6 +14,9 @@ struct TourDetailsView: View {
 
     @State private var showBreakdown = false
 
+    @State private var chatThread: ChatThread?
+    @State private var goToCheckout = false
+
     var baseTotal: Double { Double(peopleCount) * tour.price }
     var finalTotal: Double { appState.subscription.isPremium ? baseTotal * 0.9 : baseTotal }
 
@@ -122,14 +125,14 @@ struct TourDetailsView: View {
                     }
                     .buttonStyle(LuxurySecondaryButtonStyle())
 
-                    NavigationLink {
-                        CheckoutView(tour: tour, slot: selectedSlot, peopleCount: peopleCount, total: finalTotal)
+                    Button {
+                        Haptics.medium()
+                        goToCheckout = true
                     } label: {
                         Text("Continue to payment")
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
                     .disabled(selectedSlot == nil)
-                    .simultaneousGesture(TapGesture().onEnded { Haptics.medium() })
 
                     Spacer(minLength: 8)
                 }
@@ -149,6 +152,22 @@ struct TourDetailsView: View {
         .sheet(isPresented: $showBreakdown) {
             PriceBreakdownSheet(pricePerPerson: tour.price, peopleCount: peopleCount, isPremium: appState.subscription.isPremium)
         }
+        .navigationDestination(isPresented: $goToCheckout) {
+            CheckoutView(tour: tour, slot: selectedSlot, peopleCount: peopleCount, total: finalTotal)
+        }
+        .fullScreenCover(item: $chatThread) { thread in
+            NavigationStack {
+                ChatView(thread: thread)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Close") { chatThread = nil }
+                                .foregroundStyle(Lx.gold)
+                        }
+                    }
+            }
+        }
+        // Present details as a full page by hiding the tab bar.
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private func avatar(url: String?) -> some View {
@@ -196,6 +215,9 @@ struct TourDetailsView: View {
 
     private func openChat() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
-        do { _ = try await FirestoreService.shared.getOrCreateThread(userId: uid, guideId: tour.guideId, tourId: tour.id) } catch { }
+        do {
+            let thread = try await FirestoreService.shared.getOrCreateThread(userId: uid, guideId: tour.guideId, tourId: tour.id)
+            await MainActor.run { chatThread = thread }
+        } catch { }
     }
 }

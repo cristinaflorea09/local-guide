@@ -6,6 +6,7 @@ struct UserDashboardView: View {
     @State private var isLoading = false
     @State private var topTours: [Tour] = []
     @State private var topExperiences: [Experience] = []
+    @State private var tripPlans: [TripPlan] = []
 
     var body: some View {
         NavigationStack {
@@ -13,10 +14,18 @@ struct UserDashboardView: View {
                 Color.black.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("Home")
-                            .font(.largeTitle.bold())
-                            .foregroundStyle(.white)
-                            .padding(.top, 8)
+                        HStack(alignment: .center) {
+                            Text("Home")
+                                .font(.largeTitle.bold())
+                                .foregroundStyle(.white)
+                            Spacer()
+                            AvatarView(
+                                url: appState.session.currentUser?.photoURL
+                                    ?? appState.session.firebaseUser?.photoURL?.absoluteString,
+                                size: 44
+                            )
+                        }
+                        .padding(.top, 8)
 
                         LuxuryCard {
                             VStack(alignment: .leading, spacing: 8) {
@@ -28,21 +37,82 @@ struct UserDashboardView: View {
                                     .foregroundStyle(.white.opacity(0.7))
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                         if !topTours.isEmpty || !topExperiences.isEmpty {
                             TopRatedThisWeekCarousel(tours: topTours, experiences: topExperiences)
                         }
 
                         HStack(spacing: 12) {
-                            LuxuryStatCard(title: "Upcoming", value: "\(upcomingCount)")
+                            Button {
+                                Haptics.light()
+                                // Bookings lives under the iOS "More" tab for travelers.
+                                // Keep this in sync with tags in UserHomeView.
+                                appState.travelerTab = 5 // Bookings
+                            } label: {
+                                LuxuryStatCard(title: "Upcoming", value: "\(upcomingCount)")
+                            }
+                            .buttonStyle(.plain)
+
                             LuxuryStatCard(title: "Plan", value: appState.session.currentUser?.subscriptionPlan == .premium ? "Premium" : "Free")
                         }
 
                         LuxuryCard {
                             VStack(alignment: .leading, spacing: 12) {
-                                NavigationLink { ExploreMarketplaceView() } label: {
+                                HStack {
+                                    Text("Your trip plans")
+                                        .font(.headline)
+                                        .foregroundStyle(.white)
+                                    Spacer()
+                                    Button {
+                                        Haptics.light()
+                                        appState.travelerTab = 2 // Plan
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Text("New")
+                                            Image(systemName: "plus")
+                                        }
+                                    }
+                                    .foregroundStyle(Lx.gold)
+                                }
+
+                                if tripPlans.isEmpty {
+                                    Text("Create an amazing trip by planning with AI.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.white.opacity(0.75))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                } else {
+                                    Divider().opacity(0.15)
+
+                                    ForEach(tripPlans.prefix(3)) { tp in
+                                        NavigationLink { TripPlanDetailView(tripPlan: tp) } label: {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text("\(tp.city), \(tp.country)")
+                                                    .foregroundStyle(.white)
+                                                Text("\(tp.startDateISO) → \(tp.endDateISO)")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.white.opacity(0.7))
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        if tp.id != tripPlans.prefix(3).last?.id {
+                                            Divider().opacity(0.12)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        LuxuryCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Button {
+                                    Haptics.light()
+                                    appState.travelerTab = 1 // Explore
+                                } label: {
                                     HStack { Text("Explore tours & experiences"); Spacer(); Image(systemName: "chevron.right") }
                                 }
+                                .buttonStyle(.plain)
                                 .foregroundStyle(.white)
                                 Divider().opacity(0.15)
                                 NavigationLink { SubscriptionView() } label: {
@@ -75,6 +145,7 @@ struct UserDashboardView: View {
             upcomingCount = bookings.filter { $0.status != .canceled }.count
             topTours = try await FirestoreService.shared.listTopRatedToursThisWeek(limit: 10)
             topExperiences = try await FirestoreService.shared.listTopRatedExperiencesThisWeek(limit: 10)
+            tripPlans = try await FirestoreService.shared.listTripPlansForUser(uid: uid, limit: 20)
         } catch { }
     }
 }
@@ -105,10 +176,14 @@ private struct TopRatedThisWeekCarousel: View {
                         }
                         .buttonStyle(.plain)
                     }
+
+                    // Force leading alignment inside the horizontal scroll.
+                    Spacer(minLength: 0)
                 }
                 .padding(.vertical, 4)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

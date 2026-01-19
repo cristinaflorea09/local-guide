@@ -748,20 +748,12 @@ exports.addReview = onCall(
       const bookingSnap = await tx.get(bookingRef);
       if (!bookingSnap.exists) throw new HttpsError("not-found", "Booking not found");
       const booking = bookingSnap.data() || {};
-      if (booking.userId !== uid) throw new HttpsError("permission-denied", "Not your booking");
-      // App may mark successful payments as "paid" or "completed".
-      const okStatuses = new Set(["confirmed", "paid", "completed"]);
+      const bookingUserId = booking.userId || booking.travelerId || booking.customerId;
+      if (bookingUserId !== uid) throw new HttpsError("permission-denied", "Not your booking");
+      // Allow reviews once payment is created/succeeded, or booking is confirmed/paid/completed.
+      const okStatuses = new Set(["confirmed", "paid", "completed", "payment_intent_created", "payment_succeeded", "succeeded"]);
       if (!okStatuses.has(String(booking.status || "").toLowerCase())) {
-        throw new HttpsError("failed-precondition", "Only paid/confirmed bookings can be reviewed");
-      }
-
-      // Optional: only after end time
-      const endISO = booking.endISO;
-      if (endISO) {
-        const end = new Date(endISO);
-        if (!isNaN(end.getTime()) && end.getTime() > Date.now()) {
-          throw new HttpsError("failed-precondition", "You can review after the session ends");
-        }
+        throw new HttpsError("failed-precondition", "Booking must be paid/confirmed before it can be reviewed");
       }
 
       // Ensure no existing review for this booking.
@@ -774,10 +766,51 @@ exports.addReview = onCall(
       }
 
       const listingType = (booking.listingType || "tour").toLowerCase();
-      const listingId = booking.listingId || booking.tourId;
-      const providerId = booking.providerId || booking.guideId;
+
+      // Be defensive: older booking docs may use different field names.
+      const listingId = String(
+        booking.listingId ||
+          booking.tourId ||
+          booking.experienceId ||
+          booking.listingID ||
+          ""
+      );
+      const providerId = String(
+        booking.providerId ||
+          booking.guideId ||
+          booking.hostId ||
+          booking.sellerId ||
+          ""
+      );
+
+      if (!listingId) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Booking is missing listingId. Please contact support or rebook."
+        );
+      }
+      if (!providerId) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Booking is missing providerId. Please contact support or rebook."
+        );
+      }
+
       const providerRole = listingType === "experience" ? "host" : "guide";
 
+      // Prepare refs (ALL reads must happen before ANY writes in a transaction)
+      const listingRef = listingType === "experience"
+        ? db.collection("experiences").doc(listingId)
+        : db.collection("tours").doc(listingId);
+      const providerRef = providerRole === "host"
+        ? db.collection("hosts").doc(providerId)
+        : db.collection("guides").doc(providerId);
+
+      // READS FIRST
+      const listingSnap = await tx.get(listingRef);
+      const providerSnap = await tx.get(providerRef);
+
+      // WRITES AFTER ALL READS
       // Store review at reviews/{bookingId}
       tx.set(reviewRef, {
         id: bookingId,
@@ -794,10 +827,6 @@ exports.addReview = onCall(
       });
 
       // Update listing aggregates
-      const listingRef = listingType === "experience"
-        ? db.collection("experiences").doc(listingId)
-        : db.collection("tours").doc(listingId);
-      const listingSnap = await tx.get(listingRef);
       if (listingSnap.exists) {
         const d = listingSnap.data() || {};
         const { nextAvg, nextCount } = applyAvg(d.ratingAvg, d.ratingCount, stars);
@@ -830,10 +859,6 @@ exports.addReview = onCall(
       }
 
       // Update provider aggregates
-      const providerRef = providerRole === "host"
-        ? db.collection("hosts").doc(providerId)
-        : db.collection("guides").doc(providerId);
-      const providerSnap = await tx.get(providerRef);
       if (providerSnap.exists) {
         const d = providerSnap.data() || {};
         const { nextAvg, nextCount } = applyAvg(d.ratingAvg, d.ratingCount, stars);
@@ -865,7 +890,7 @@ exports.addReview = onCall(
         );
       }
 
-      return { reviewId: bookingId };
+return { reviewId: bookingId };
     });
   }
 );
@@ -1182,65 +1207,136 @@ async function openAIResponsesJSON({ model, input, schema }) {
   const apiKey = OPENAI_API_KEY.value();
   if (!apiKey) throw new Error("Missing secret OPENAI_API_KEY");
 
-  const body = {
+  // First attempt: OpenAI Responses API (supports json_schema output)
+  const responsesBody = {
     model,
     input,
-    // Ask the model to return a strict JSON object matching schema.
     response_format: {
       type: "json_schema",
       json_schema: {
         name: "trip_plan",
         schema,
-        // In production we prefer "strict", but occasional minor schema deviations
-        // (extra keys, number-as-string, etc.) can cause hard failures that bubble up
-        // to the client as INTERNAL. We keep schema guidance but allow slight drift.
+        // Allow slight drift to reduce hard failures.
         strict: false,
       },
     },
   };
 
-  const resp = await fetch("https://api.openai.com/v1/responses", {
+  let resp;
+  let json;
+  try {
+    resp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(responsesBody),
+    });
+
+    if (resp.ok) {
+      json = await resp.json();
+      // Best-effort extraction for the Responses API.
+      const direct = json?.output?.[0]?.content?.find?.((c) => c?.json)?.json
+        ?? json?.output?.[0]?.content?.[0]?.json;
+      if (direct && typeof direct === "object") return direct;
+
+      const txt = json?.output_text
+        ?? json?.output?.[0]?.content?.find?.((c) => c?.type === "output_text")?.text
+        ?? json?.output?.[0]?.content?.[0]?.text;
+
+      if (typeof txt === "string" && txt.trim().length > 0) {
+        try {
+          return JSON.parse(txt);
+        } catch (_) {
+          const start = txt.indexOf("{");
+          const end = txt.lastIndexOf("}");
+          if (start >= 0 && end > start) {
+            const slice = txt.slice(start, end + 1);
+            return JSON.parse(slice);
+          }
+        }
+      }
+
+      throw new Error("OpenAI response missing JSON output");
+    }
+
+    // If Responses API is unavailable in this OpenAI project or the model doesn\'t support it,
+    // we fall back to Chat Completions JSON mode.
+    const errText = await resp.text();
+    const status = resp.status;
+    // Many setups return 404/400/403 for /v1/responses or json_schema.
+    if (![400, 403, 404, 405].includes(status)) {
+      throw new Error(`OpenAI error ${status}: ${errText}`);
+    }
+  } catch (e) {
+    // Network/parse errors fall through to fallback.
+  }
+
+  // Fallback: Chat Completions with JSON mode.
+  // Build a single prompt string from the provided input array.
+  const prompt = Array.isArray(input)
+    ? input
+        .map((m) => {
+          const parts = m?.content;
+          if (Array.isArray(parts)) {
+            return parts.map((p) => (p?.text ? p.text : "")).join("\n");
+          }
+          return "";
+        })
+        .join("\n\n")
+    : "";
+
+  const chatBody = {
+    model,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a travel planner. Return ONLY valid JSON. Do not include markdown or extra text.",
+      },
+      {
+        role: "user",
+        content:
+          prompt +
+          "\n\nReturn ONLY a JSON object matching this schema (keys/types):\n" +
+          JSON.stringify(schema),
+      },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.4,
+  };
+
+  const chatResp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(chatBody),
   });
 
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`OpenAI error ${resp.status}: ${t}`);
+  if (!chatResp.ok) {
+    const t = await chatResp.text();
+    throw new Error(`OpenAI error ${chatResp.status}: ${t}`);
   }
 
-  const json = await resp.json();
-
-  // Best-effort extraction for the Responses API. Depending on model/version,
-  // JSON may appear in different slots.
-  const direct = json?.output?.[0]?.content?.find?.((c) => c?.json)?.json
-    ?? json?.output?.[0]?.content?.[0]?.json;
-  if (direct && typeof direct === "object") return direct;
-
-  const txt = json?.output_text
-    ?? json?.output?.[0]?.content?.find?.((c) => c?.type === "output_text")?.text
-    ?? json?.output?.[0]?.content?.[0]?.text;
-
-  if (typeof txt === "string" && txt.trim().length > 0) {
-    // Try plain JSON parse first.
-    try {
-      return JSON.parse(txt);
-    } catch (_) {
-      // Attempt to extract the first JSON object from a mixed response.
-      const start = txt.indexOf("{");
-      const end = txt.lastIndexOf("}");
-      if (start >= 0 && end > start) {
-        const slice = txt.slice(start, end + 1);
-        return JSON.parse(slice);
-      }
+  const chatJson = await chatResp.json();
+  const content = chatJson?.choices?.[0]?.message?.content;
+  if (!content || typeof content !== "string") {
+    throw new Error("OpenAI chat response missing content");
+  }
+  try {
+    return JSON.parse(content);
+  } catch (e) {
+    // Attempt to extract JSON object.
+    const start = content.indexOf("{");
+    const end = content.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      return JSON.parse(content.slice(start, end + 1));
     }
+    throw new Error("OpenAI chat response is not valid JSON");
   }
-
-  throw new Error("OpenAI response missing JSON output");
 }
 
 exports.generateTripPlan = onCall(
@@ -1327,31 +1423,50 @@ Do not include any URLs.
 Return ONLY valid JSON that matches the provided schema.`;
 
     let plan;
-    try {
-      // Use a widely available mini model. If your OpenAI project doesn't have
-      // access to a newer model name, the fallback will try an alternative.
-      plan = await openAIResponsesJSON({
-        model: "gpt-4o-mini",
-        input: [{ role: "user", content: [{ type: "text", text: prompt }] }],
-        schema,
-      });
-    } catch (e) {
-      const msg = String(e?.message || e);
-      // Retry once with the other model name used previously.
+    const modelCandidates = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"];
+    let lastErr = null;
+
+    for (const modelName of modelCandidates) {
       try {
         plan = await openAIResponsesJSON({
-          model: "gpt-4.1-mini",
+          model: modelName,
           input: [{ role: "user", content: [{ type: "text", text: prompt }] }],
           schema,
         });
-      } catch (e2) {
-        const msg2 = String(e2?.message || e2);
-        logger.error("generateTripPlan failed", { first: msg, second: msg2 });
-        if (msg2.includes("Missing secret OPENAI_API_KEY")) {
-          throw new HttpsError("failed-precondition", "AI Trip Planner is not configured (missing OPENAI_API_KEY secret)");
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        const msg = String(e?.message || e);
+        // If model isn't available, try the next candidate.
+        if (msg.toLowerCase().includes("model") && msg.toLowerCase().includes("not")) continue;
+        if (msg.includes("model_not_found")) continue;
+        // If missing secret, surface a clearer configuration error.
+        if (msg.includes("Missing secret OPENAI_API_KEY")) {
+          throw new HttpsError(
+            "failed-precondition",
+            "AI Trip Planner is not configured (missing OPENAI_API_KEY secret)"
+          );
         }
-        throw new HttpsError("internal", `AI Trip Planner failed: ${msg2}`);
+        // Otherwise break and report.
+        break;
       }
+    }
+
+    if (!plan) {
+      const msg = String(lastErr?.message || lastErr || "unknown error");
+      // Common OpenAI auth/config errors
+      if (msg.includes("401") || msg.toLowerCase().includes("invalid api key")) {
+        throw new HttpsError("failed-precondition", "AI Trip Planner is not configured (invalid OpenAI API key)");
+      }
+      if (msg.includes("429") || msg.toLowerCase().includes("rate") ) {
+        throw new HttpsError("resource-exhausted", "AI Trip Planner is busy. Please try again in a moment.");
+      }
+      if (msg.toLowerCase().includes("model")) {
+        throw new HttpsError("failed-precondition", "AI Trip Planner is not configured (no accessible OpenAI model)");
+      }
+      logger.error("generateTripPlan failed", { error: msg });
+      throw new HttpsError("internal", `AI Trip Planner failed: ${msg}`);
     }
 
     const ref = db.collection("tripPlans").doc();
