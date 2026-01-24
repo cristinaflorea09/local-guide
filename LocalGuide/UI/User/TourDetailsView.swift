@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TourDetailsView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var appState: AppState
     let tour: Tour
 
@@ -13,9 +14,6 @@ struct TourDetailsView: View {
     @State private var loadingExtras = false
 
     @State private var showBreakdown = false
-
-    @State private var chatThread: ChatThread?
-    @State private var goToCheckout = false
 
     var baseTotal: Double { Double(peopleCount) * tour.price }
     var finalTotal: Double { appState.subscription.isPremium ? baseTotal * 0.9 : baseTotal }
@@ -125,14 +123,14 @@ struct TourDetailsView: View {
                     }
                     .buttonStyle(LuxurySecondaryButtonStyle())
 
-                    Button {
-                        Haptics.medium()
-                        goToCheckout = true
+                    NavigationLink {
+                        CheckoutView(tour: tour, slot: selectedSlot, peopleCount: peopleCount, total: finalTotal)
                     } label: {
                         Text("Continue to payment")
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
                     .disabled(selectedSlot == nil)
+                    .simultaneousGesture(TapGesture().onEnded { Haptics.medium() })
 
                     Spacer(minLength: 8)
                 }
@@ -148,23 +146,21 @@ struct TourDetailsView: View {
         }
         .navigationTitle("Details")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.headline)
+                        .foregroundStyle(Lx.gold)
+                }
+                .accessibilityLabel("Close")
+            }
+        }
         .task { await loadExtras() }
         .sheet(isPresented: $showBreakdown) {
             PriceBreakdownSheet(pricePerPerson: tour.price, peopleCount: peopleCount, isPremium: appState.subscription.isPremium)
-        }
-        .navigationDestination(isPresented: $goToCheckout) {
-            CheckoutView(tour: tour, slot: selectedSlot, peopleCount: peopleCount, total: finalTotal)
-        }
-        .fullScreenCover(item: $chatThread) { thread in
-            NavigationStack {
-                ChatView(thread: thread)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button("Close") { chatThread = nil }
-                                .foregroundStyle(Lx.gold)
-                        }
-                    }
-            }
         }
         // Present details as a full page by hiding the tab bar.
         .toolbar(.hidden, for: .tabBar)
@@ -215,9 +211,6 @@ struct TourDetailsView: View {
 
     private func openChat() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
-        do {
-            let thread = try await FirestoreService.shared.getOrCreateThread(userId: uid, guideId: tour.guideId, tourId: tour.id)
-            await MainActor.run { chatThread = thread }
-        } catch { }
+        do { _ = try await FirestoreService.shared.getOrCreateThread(userId: uid, guideId: tour.guideId, tourId: tour.id) } catch { }
     }
 }

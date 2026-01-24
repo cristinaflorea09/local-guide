@@ -142,18 +142,6 @@ async function isAdminUid(uid) {
   return !!u && u.role === "admin";
 }
 
-async function isCallerAdmin(uid) {
-  // Prefer custom claims (recommended) but fall back to Firestore role.
-  try {
-    const user = await admin.auth().getUser(uid);
-    const claims = user.customClaims || {};
-    if (claims.role === "admin" || claims.admin === true) return true;
-  } catch (e) {
-    logger.warn("Failed to read custom claims for admin check", e);
-  }
-  return isAdminUid(uid);
-}
-
 function parseIsoToDate(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) throw new Error("Invalid ISO datetime");
@@ -748,72 +736,33 @@ exports.addReview = onCall(
       const bookingSnap = await tx.get(bookingRef);
       if (!bookingSnap.exists) throw new HttpsError("not-found", "Booking not found");
       const booking = bookingSnap.data() || {};
-      const bookingUserId = booking.userId || booking.travelerId || booking.customerId;
-      if (bookingUserId !== uid) throw new HttpsError("permission-denied", "Not your booking");
-      // Allow reviews once payment is created/succeeded, or booking is confirmed/paid/completed.
-      const okStatuses = new Set(["confirmed", "paid", "completed", "payment_intent_created", "payment_succeeded", "succeeded"]);
-      if (!okStatuses.has(String(booking.status || "").toLowerCase())) {
-        throw new HttpsError("failed-precondition", "Booking must be paid/confirmed before it can be reviewed");
+      if (booking.userId !== uid) throw new HttpsError("permission-denied", "Not your booking");
+      if (booking.status !== "confirmed") throw new HttpsError("failed-precondition", "Only confirmed bookings can be reviewed");
+
+      // Optional: only after end time
+      const endISO = booking.endISO;
+      if (endISO) {
+        const end = new Date(endISO);
+        if (!isNaN(end.getTime()) && end.getTime() > Date.now()) {
+          throw new HttpsError("failed-precondition", "You can review after the session ends");
+        }
       }
 
-      // Ensure no existing review for this booking.
-      // IMPORTANT: Firestore transactions in the Admin SDK do not reliably support `tx.get(query)`.
-      // Use a deterministic doc id (bookingId) instead.
-      const reviewRef = reviewsCol.doc(bookingId);
-      const existingReview = await tx.get(reviewRef);
-      if (existingReview.exists) {
+      // Ensure no existing review for this booking
+      const existing = await tx.get(reviewsCol.where("bookingId", "==", bookingId).limit(1));
+      if (!existing.empty) {
         throw new HttpsError("already-exists", "Review already exists for this booking");
       }
 
       const listingType = (booking.listingType || "tour").toLowerCase();
-
-      // Be defensive: older booking docs may use different field names.
-      const listingId = String(
-        booking.listingId ||
-          booking.tourId ||
-          booking.experienceId ||
-          booking.listingID ||
-          ""
-      );
-      const providerId = String(
-        booking.providerId ||
-          booking.guideId ||
-          booking.hostId ||
-          booking.sellerId ||
-          ""
-      );
-
-      if (!listingId) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Booking is missing listingId. Please contact support or rebook."
-        );
-      }
-      if (!providerId) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Booking is missing providerId. Please contact support or rebook."
-        );
-      }
-
+      const listingId = booking.listingId || booking.tourId;
+      const providerId = booking.providerId || booking.guideId;
       const providerRole = listingType === "experience" ? "host" : "guide";
 
-      // Prepare refs (ALL reads must happen before ANY writes in a transaction)
-      const listingRef = listingType === "experience"
-        ? db.collection("experiences").doc(listingId)
-        : db.collection("tours").doc(listingId);
-      const providerRef = providerRole === "host"
-        ? db.collection("hosts").doc(providerId)
-        : db.collection("guides").doc(providerId);
-
-      // READS FIRST
-      const listingSnap = await tx.get(listingRef);
-      const providerSnap = await tx.get(providerRef);
-
-      // WRITES AFTER ALL READS
-      // Store review at reviews/{bookingId}
+      const reviewId = db.collection("_tmp").doc().id;
+      const reviewRef = reviewsCol.doc(reviewId);
       tx.set(reviewRef, {
-        id: bookingId,
+        id: reviewId,
         bookingId,
         userId: uid,
         listingType,
@@ -827,6 +776,10 @@ exports.addReview = onCall(
       });
 
       // Update listing aggregates
+      const listingRef = listingType === "experience"
+        ? db.collection("experiences").doc(listingId)
+        : db.collection("tours").doc(listingId);
+      const listingSnap = await tx.get(listingRef);
       if (listingSnap.exists) {
         const d = listingSnap.data() || {};
         const { nextAvg, nextCount } = applyAvg(d.ratingAvg, d.ratingCount, stars);
@@ -859,6 +812,10 @@ exports.addReview = onCall(
       }
 
       // Update provider aggregates
+      const providerRef = providerRole === "host"
+        ? db.collection("hosts").doc(providerId)
+        : db.collection("guides").doc(providerId);
+      const providerSnap = await tx.get(providerRef);
       if (providerSnap.exists) {
         const d = providerSnap.data() || {};
         const { nextAvg, nextCount } = applyAvg(d.ratingAvg, d.ratingCount, stars);
@@ -890,7 +847,7 @@ exports.addReview = onCall(
         );
       }
 
-return { reviewId: bookingId };
+      return { reviewId };
     });
   }
 );
@@ -900,7 +857,7 @@ exports.adminOverrideCancel = onCall(
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Login required");
     const uid = request.auth.uid;
-    if (!(await isCallerAdmin(uid))) throw new HttpsError("permission-denied", "Admin only");
+    if (!(await isAdminUid(uid))) throw new HttpsError("permission-denied", "Admin only");
 
     const { bookingId, refundPercent } = request.data || {};
     if (!bookingId) throw new HttpsError("invalid-argument", "Missing bookingId");
@@ -956,60 +913,6 @@ exports.adminOverrideCancel = onCall(
     return { canceled: true, refunded, refundPercent: pct };
   }
 );
-
-/* =======================
-   ADMIN: SET ADMIN ROLE (CALLABLE)
-   - Requires caller to be admin (custom claim OR Firestore role)
-   - Sets custom claim { role: 'admin', admin: true }
-   - Ensures Firestore users/{uid}.role === 'admin'
-======================= */
-exports.setAdminRole = onCall({ region: REGION }, async (request) => {
-  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Login required");
-  const callerUid = request.auth.uid;
-  if (!(await isCallerAdmin(callerUid))) throw new HttpsError("permission-denied", "Admin only");
-
-  const { targetUid, targetEmail } = request.data || {};
-  if (!targetUid && !targetEmail) {
-    throw new HttpsError("invalid-argument", "Provide targetUid or targetEmail");
-  }
-
-  let uid = targetUid;
-  if (!uid) {
-    const email = String(targetEmail || "").trim().toLowerCase();
-    if (!email) throw new HttpsError("invalid-argument", "Invalid targetEmail");
-    try {
-      const u = await admin.auth().getUserByEmail(email);
-      uid = u.uid;
-    } catch (e) {
-      logger.warn("getUserByEmail failed", e);
-      throw new HttpsError("not-found", "No auth user found for that email");
-    }
-  }
-
-  // 1) Set custom claims
-  try {
-    const user = await admin.auth().getUser(uid);
-    const existing = user.customClaims || {};
-    const nextClaims = { ...existing, role: "admin", admin: true };
-    await admin.auth().setCustomUserClaims(uid, nextClaims);
-  } catch (e) {
-    logger.error("Failed to set custom claims", e);
-    throw new HttpsError("internal", "Failed to set admin custom claims");
-  }
-
-  // 2) Ensure Firestore role
-  const db = admin.firestore();
-  const userRef = db.collection("users").doc(uid);
-  await userRef.set(
-    {
-      role: "admin",
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  return { ok: true, uid };
-});
 
 /* =======================
    PAYOUT JOB (SCHEDULED)
@@ -1203,140 +1106,109 @@ exports.stripeWebhook = onRequest(
    Server-side OpenAI call. Never expose API keys in iOS client.
 ======================= */
 
+const normalizeResponsesInput = (input) => {
+  if (typeof input === 'string') return input;
+  if (Array.isArray(input)) {
+    return input.map((m) => {
+      if (!m || !Array.isArray(m.content)) return m;
+      const content = m.content.map((p) => {
+        if (!p || typeof p !== 'object') return p;
+        // Old/incorrect type -> correct for Responses API
+        if (p.type === 'text') return { ...p, type: 'input_text' };
+        return p;
+      });
+      return { ...m, content };
+    });
+  }
+  return input;
+};
+
 async function openAIResponsesJSON({ model, input, schema }) {
   const apiKey = OPENAI_API_KEY.value();
-  if (!apiKey) throw new Error("Missing secret OPENAI_API_KEY");
+  if (!apiKey) throw new Error('Missing secret OPENAI_API_KEY');
 
-  // First attempt: OpenAI Responses API (supports json_schema output)
-  const responsesBody = {
+  const body = {
     model,
-    input,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "trip_plan",
+    input: normalizeResponsesInput(input),
+    // Responses API: response_format moved to text.format
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'trip_plan',
         schema,
-        // Allow slight drift to reduce hard failures.
-        strict: false,
+        strict: true,
       },
     },
   };
 
-  let resp;
-  let json;
-  try {
-    resp = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(responsesBody),
-    });
+  const resp = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
 
-    if (resp.ok) {
-      json = await resp.json();
-      // Best-effort extraction for the Responses API.
-      const direct = json?.output?.[0]?.content?.find?.((c) => c?.json)?.json
-        ?? json?.output?.[0]?.content?.[0]?.json;
-      if (direct && typeof direct === "object") return direct;
+  if (!resp.ok) {
+    const t = await resp.text();
+    throw new Error(`OpenAI error ${resp.status}: ${t}`);
+  }
 
-      const txt = json?.output_text
-        ?? json?.output?.[0]?.content?.find?.((c) => c?.type === "output_text")?.text
-        ?? json?.output?.[0]?.content?.[0]?.text;
+  const json = await resp.json();
 
-      if (typeof txt === "string" && txt.trim().length > 0) {
+  // Extract JSON from Responses API output (handles several shapes)
+  const out = (() => {
+    const outputs = Array.isArray(json?.output) ? json.output : [];
+    for (const o of outputs) {
+      const content = Array.isArray(o?.content) ? o.content : [];
+      // 1) Native structured JSON part
+      const oj = content.find((c) => c?.type === 'output_json' && c?.json);
+      if (oj?.json) return oj.json;
+
+      // 2) Some SDKs place parsed/json on the first content item
+      const first = content[0];
+      if (first?.json) return first.json;
+      if (first?.parsed) return first.parsed;
+
+      // 3) Text part containing JSON (common)
+      const ot = content.find((c) => c?.type === 'output_text' && typeof c?.text === 'string');
+      if (ot?.text) {
         try {
-          return JSON.parse(txt);
-        } catch (_) {
-          const start = txt.indexOf("{");
-          const end = txt.lastIndexOf("}");
-          if (start >= 0 && end > start) {
-            const slice = txt.slice(start, end + 1);
-            return JSON.parse(slice);
-          }
+          return JSON.parse(ot.text);
+        } catch {
+          // ignore
         }
       }
 
-      throw new Error("OpenAI response missing JSON output");
+      // 4) Some responses use summary_text for short JSON
+      const st = content.find((c) => c?.type === 'summary_text' && typeof c?.text === 'string');
+      if (st?.text) {
+        try {
+          return JSON.parse(st.text);
+        } catch {
+          // ignore
+        }
+      }
     }
 
-    // If Responses API is unavailable in this OpenAI project or the model doesn\'t support it,
-    // we fall back to Chat Completions JSON mode.
-    const errText = await resp.text();
-    const status = resp.status;
-    // Many setups return 404/400/403 for /v1/responses or json_schema.
-    if (![400, 403, 404, 405].includes(status)) {
-      throw new Error(`OpenAI error ${status}: ${errText}`);
+    // 5) Top-level convenience field
+    const txt = json?.output_text;
+    if (typeof txt === 'string' && txt.trim()) {
+      try {
+        return JSON.parse(txt);
+      } catch {
+        // ignore
+      }
     }
-  } catch (e) {
-    // Network/parse errors fall through to fallback.
-  }
 
-  // Fallback: Chat Completions with JSON mode.
-  // Build a single prompt string from the provided input array.
-  const prompt = Array.isArray(input)
-    ? input
-        .map((m) => {
-          const parts = m?.content;
-          if (Array.isArray(parts)) {
-            return parts.map((p) => (p?.text ? p.text : "")).join("\n");
-          }
-          return "";
-        })
-        .join("\n\n")
-    : "";
+    return null;
+  })();
 
-  const chatBody = {
-    model,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a travel planner. Return ONLY valid JSON. Do not include markdown or extra text.",
-      },
-      {
-        role: "user",
-        content:
-          prompt +
-          "\n\nReturn ONLY a JSON object matching this schema (keys/types):\n" +
-          JSON.stringify(schema),
-      },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.4,
-  };
+  if (out) return out;
 
-  const chatResp = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(chatBody),
-  });
+  throw new Error('OpenAI response missing JSON output');
 
-  if (!chatResp.ok) {
-    const t = await chatResp.text();
-    throw new Error(`OpenAI error ${chatResp.status}: ${t}`);
-  }
-
-  const chatJson = await chatResp.json();
-  const content = chatJson?.choices?.[0]?.message?.content;
-  if (!content || typeof content !== "string") {
-    throw new Error("OpenAI chat response missing content");
-  }
-  try {
-    return JSON.parse(content);
-  } catch (e) {
-    // Attempt to extract JSON object.
-    const start = content.indexOf("{");
-    const end = content.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      return JSON.parse(content.slice(start, end + 1));
-    }
-    throw new Error("OpenAI chat response is not valid JSON");
-  }
 }
 
 exports.generateTripPlan = onCall(
@@ -1359,6 +1231,8 @@ exports.generateTripPlan = onCall(
       groupSize,
       languageCode,
       notes,
+      // Optional catalog of in-app listings so the itinerary uses ONLY these.
+      catalog,
     } = data;
 
     if (!city || !country || !startDateISO || !endDateISO) {
@@ -1374,6 +1248,16 @@ exports.generateTripPlan = onCall(
       properties: {
         title: { type: "string" },
         summary: { type: "string" },
+        // Echo back which listings the planner used, so the client can render them reliably.
+        used: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            tours: { type: "array", items: { type: "string" } },
+            experiences: { type: "array", items: { type: "string" } },
+          },
+          required: ["tours", "experiences"],
+        },
         days: {
           type: "array",
           items: {
@@ -1394,22 +1278,59 @@ exports.generateTripPlan = onCall(
                     neighborhood: { type: "string" },
                     estimatedCost: { type: "number" },
                     bookingHint: { type: "string" },
+                    // When recommending an in-app listing, include an explicit reference.
+                    listingType: { type: "string" },
+                    listingId: { type: "string" },
                   },
-                  required: ["time", "title", "description"],
+                  required: ["time", "title", "description", "neighborhood", "estimatedCost", "bookingHint", "listingType", "listingId"],
                 },
               },
             },
-            required: ["dateISO", "items"],
+            required: ["dateISO", "theme", "items"],
           },
         },
         budgetNotes: { type: "string" },
       },
-      required: ["title", "summary", "days"],
+      required: ["title", "summary", "days", "used", "budgetNotes"],
     };
 
     const lang = languageCode === "ro" ? "Romanian" : "English";
     const user = await db.collection("users").doc(uid).get();
     const fullName = user.exists ? user.data()?.fullName : "";
+
+    // Build a compact catalog string (limit tokens).
+    const safeCatalog = typeof catalog === "object" && catalog ? catalog : { tours: [], experiences: [] };
+    const toursList = Array.isArray(safeCatalog.tours) ? safeCatalog.tours : [];
+    const expsList = Array.isArray(safeCatalog.experiences) ? safeCatalog.experiences : [];
+
+    // If there are no listings, we cannot build a plan without inventing activities.
+    if (toursList.length === 0 && expsList.length === 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        "No tours or experiences found in the app for this destination. Add listings or choose another city."
+      );
+    }
+
+    const fmtLine = (x, kind) => {
+      if (!x || typeof x !== "object") return "";
+      const id = String(x.id || "").trim();
+      const title = String(x.title || "").trim();
+      const cat = String(x.category || "").trim();
+      const price = x.price != null ? Number(x.price) : null;
+      const dur = x.durationMinutes != null ? Number(x.durationMinutes) : null;
+      const rating = x.ratingAvg != null ? Number(x.ratingAvg) : null;
+      const reviews = x.ratingCount != null ? Number(x.ratingCount) : null;
+      const instant = x.instantBook === true ? "instant" : "request";
+      if (!id || !title) return "";
+      return `- ${kind}:${id} | ${title} | ${cat || ""} | ${price != null ? "€" + Math.round(price) : ""} | ${dur != null ? dur + "m" : ""} | ${rating != null ? rating.toFixed(1) : ""} (${reviews != null ? reviews : 0}) | ${instant}`.trim();
+    };
+
+    const catalogText = [
+      `IN-APP TOURS (use ONLY these):`,
+      ...toursList.slice(0, 50).map((t) => fmtLine(t, "tour")).filter(Boolean),
+      `\nIN-APP EXPERIENCES (use ONLY these):`,
+      ...expsList.slice(0, 50).map((e) => fmtLine(e, "experience")).filter(Boolean),
+    ].join("\n");
 
     const prompt = `You are a premium travel planner for a local experiences marketplace.
 Create a day-by-day itinerary for ${fullName || "the traveler"} visiting ${city}, ${country}.
@@ -1418,55 +1339,36 @@ Interests: ${Array.isArray(interests) ? interests.join(", ") : ""}.
 Pace: ${pace || "balanced"}. Group size: ${groupSize || 1}. Budget per day: ${budgetPerDay || "unspecified"}.
 Extra notes: ${notes || ""}.
 
+CRITICAL RULES:
+1) The itinerary MUST be built ONLY from the in-app listings provided below. Do NOT invent attractions, restaurants, museums, landmarks, or other activities.
+2) When you place an in-app listing into the itinerary, you MUST include listingType ("tour" or "experience") and listingId (the id after the prefix).
+3) If there aren't enough suitable listings for a time slot, use a generic "Free time" item (no listingType/listingId) with a short description.
+4) Your plan should use listings that match interests, budget, group size, and pace.
+5) Populate the "used" field with arrays of listing IDs you actually used (no prefixes).
+
+${catalogText}
+
 Output must be in ${lang}. Use realistic neighborhoods/areas and include booking hints like: "Book a certified guide in-app" or "Book a host experience in-app".
 Do not include any URLs.
 Return ONLY valid JSON that matches the provided schema.`;
 
-    let plan;
-    const modelCandidates = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"];
-    let lastErr = null;
+    const plan = await openAIResponsesJSON({
+      model: "gpt-4.1-mini",
+      input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+      schema,
+    });
 
-    for (const modelName of modelCandidates) {
-      try {
-        plan = await openAIResponsesJSON({
-          model: modelName,
-          input: [{ role: "user", content: [{ type: "text", text: prompt }] }],
-          schema,
-        });
-        lastErr = null;
-        break;
-      } catch (e) {
-        lastErr = e;
-        const msg = String(e?.message || e);
-        // If model isn't available, try the next candidate.
-        if (msg.toLowerCase().includes("model") && msg.toLowerCase().includes("not")) continue;
-        if (msg.includes("model_not_found")) continue;
-        // If missing secret, surface a clearer configuration error.
-        if (msg.includes("Missing secret OPENAI_API_KEY")) {
-          throw new HttpsError(
-            "failed-precondition",
-            "AI Trip Planner is not configured (missing OPENAI_API_KEY secret)"
-          );
-        }
-        // Otherwise break and report.
-        break;
+    // Defensive post-processing: ensure used ids are strings and strip prefixes if present.
+    try {
+      if (plan && plan.used) {
+        const strip = (arr) => (Array.isArray(arr) ? arr.map((x) => String(x || "").replace(/^tour:|^experience:/, "").trim()).filter(Boolean) : []);
+        plan.used = {
+          tours: strip(plan.used.tours),
+          experiences: strip(plan.used.experiences),
+        };
       }
-    }
-
-    if (!plan) {
-      const msg = String(lastErr?.message || lastErr || "unknown error");
-      // Common OpenAI auth/config errors
-      if (msg.includes("401") || msg.toLowerCase().includes("invalid api key")) {
-        throw new HttpsError("failed-precondition", "AI Trip Planner is not configured (invalid OpenAI API key)");
-      }
-      if (msg.includes("429") || msg.toLowerCase().includes("rate") ) {
-        throw new HttpsError("resource-exhausted", "AI Trip Planner is busy. Please try again in a moment.");
-      }
-      if (msg.toLowerCase().includes("model")) {
-        throw new HttpsError("failed-precondition", "AI Trip Planner is not configured (no accessible OpenAI model)");
-      }
-      logger.error("generateTripPlan failed", { error: msg });
-      throw new HttpsError("internal", `AI Trip Planner failed: ${msg}`);
+    } catch (e) {
+      // ignore
     }
 
     const ref = db.collection("tripPlans").doc();

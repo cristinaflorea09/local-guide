@@ -37,7 +37,6 @@ struct UserDashboardView: View {
                                     .foregroundStyle(.white.opacity(0.7))
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
 
                         if !topTours.isEmpty || !topExperiences.isEmpty {
                             TopRatedThisWeekCarousel(tours: topTours, experiences: topExperiences)
@@ -176,10 +175,10 @@ private struct TopRatedThisWeekCarousel: View {
                         }
                         .buttonStyle(.plain)
                     }
-
-                    // Force leading alignment inside the horizontal scroll.
-                    Spacer(minLength: 0)
                 }
+                // When there are only 1-2 items, horizontally scrolling stacks
+                // tend to center within the available width. Force leading.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 4)
             }
         }

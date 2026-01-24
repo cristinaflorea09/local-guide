@@ -39,6 +39,14 @@ final class MarketplaceFilterState: ObservableObject {
 
     @Published var sortOption: ListingSortOption = .bestRated
 
+    /// Show listings near the user's current location.
+    /// Default ON for fast, relevant browsing.
+    @Published var nearMeEnabled: Bool = true
+
+    /// Radius in kilometers for Near Me.
+    /// Keep non-optional so Explore can load immediately on first open.
+    @Published var nearMeRadiusKm: Double = 25
+
     func clear() {
         query = ""
         country = ""
@@ -51,6 +59,10 @@ final class MarketplaceFilterState: ObservableObject {
         instantBookOnly = false
         minRating = 0
         sortOption = .bestRated
+
+        // Near Me defaults
+        nearMeEnabled = true
+        nearMeRadiusKm = 25
     }
 
     var activeFiltersCount: Int {

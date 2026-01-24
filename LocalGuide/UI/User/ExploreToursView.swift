@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct ExploreToursView: View {
     @EnvironmentObject var appState: AppState
@@ -8,6 +9,7 @@ struct ExploreToursView: View {
     @State private var isLoading = false
     @State private var nextSlotByTourId: [String: Date] = [:]
     @StateObject private var directory = ProfileDirectory()
+    @StateObject private var locationManager = LocationManager()
 
     var body: some View {
         ZStack {
@@ -57,8 +59,17 @@ struct ExploreToursView: View {
                     .padding(18).padding(.top, 110)
                 }
         }
-        .task { await load() }
+        .task {
+            locationManager.requestPermission()
+            await load()
+        }
         .onChange(of: filters.city) { _, _ in Task { await load() } }
+        .onChange(of: filters.nearMeEnabled) { _, _ in Task { await load() } }
+        .onChange(of: filters.nearMeRadiusKm) { _, _ in Task { await load() } }
+        .onChange(of: locationManager.lastLocation) { _, _ in
+            // When location becomes available, refresh near-me results.
+            Task { await load() }
+        }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
             Task { await load() }
         }
@@ -67,9 +78,25 @@ struct ExploreToursView: View {
     private func load() async {
         isLoading = true
         do {
-            // Use server-side city filter when available; all other filters are applied client-side.
-            let city = filters.city.trimmingCharacters(in: .whitespacesAndNewlines)
-            tours = try await FirestoreService.shared.getTours(city: city.isEmpty ? nil : city)
+            // Prefer Near Me (default ON). If location isn't available yet, fall back to regular query.
+            if filters.nearMeEnabled, let loc = locationManager.lastLocation {
+                let radiusKm = max(1, filters.nearMeRadiusKm)
+                let latDelta = radiusKm / 111.0
+                let minLat = loc.coordinate.latitude - latDelta
+                let maxLat = loc.coordinate.latitude + latDelta
+
+                let candidates = try await FirestoreService.shared.getToursByLatitudeRange(minLat: minLat, maxLat: maxLat, limit: 600)
+                tours = candidates.filter { t in
+                    guard t.active == true else { return false }
+                    guard let lat = t.latitude, let lon = t.longitude else { return false }
+                    let d = loc.distance(from: CLLocation(latitude: lat, longitude: lon))
+                    return (d / 1000.0) <= radiusKm
+                }
+            } else {
+                // Use server-side city filter when available; all other filters are applied client-side.
+                let city = filters.city.trimmingCharacters(in: .whitespacesAndNewlines)
+                tours = try await FirestoreService.shared.getTours(city: city.isEmpty ? nil : city)
+            }
             for t in tours { await directory.loadGuideIfNeeded(t.guideId) }
             await computeNextSlots()
         } catch {

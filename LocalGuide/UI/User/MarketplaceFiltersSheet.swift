@@ -7,34 +7,14 @@ struct MarketplaceFiltersSheet: View {
     @State private var priceMinText: String = ""
     @State private var priceMaxText: String = ""
 
-    @State private var showCountryPicker = false
-    @State private var showCityPicker = false
-
     var body: some View {
         NavigationStack {
             Form {
                 Section("Location") {
-                    Button {
-                        showCountryPicker = true
-                    } label: {
-                        HStack {
-                            Text("Country")
-                            Spacer()
-                            Text(filters.country.isEmpty ? "Any" : filters.country)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    Button {
-                        showCityPicker = true
-                    } label: {
-                        HStack {
-                            Text("City")
-                            Spacer()
-                            Text(filters.city.isEmpty ? "Any" : filters.city)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    TextField("Country", text: $filters.country)
+                        .textInputAutocapitalization(.words)
+                    TextField("City", text: $filters.city)
+                        .textInputAutocapitalization(.words)
                 }
 
                 Section("Search") {
@@ -107,12 +87,6 @@ struct MarketplaceFiltersSheet: View {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
                 }
-            }
-            .sheet(isPresented: $showCountryPicker) {
-                CountryPickerView(country: $filters.country)
-            }
-            .sheet(isPresented: $showCityPicker) {
-                CityPickerView(selectedCountry: filters.country, city: $filters.city)
             }
         }
     }

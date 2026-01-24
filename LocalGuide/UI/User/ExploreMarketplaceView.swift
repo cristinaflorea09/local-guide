@@ -79,15 +79,13 @@ struct ExploreMarketplaceView: View {
             // Dismiss keyboard when tapping outside the search field
             isSearchFocused = false
         }
-        .onChange(of: mode) { _, _ in
-            // Reset search, filters, and sort when switching between Tours and Experiences.
-            // This keeps each mode feeling independent and avoids accidental carry-over.
-            filters.clear()
-            showFilters = false
-            isSearchFocused = false
-        }
         .onAppear {
             // Ensure search is not active on initial load.
+            isSearchFocused = false
+        }
+        .onChange(of: mode) { _, _ in
+            // Reset search/filters when switching between Tours and Experiences.
+            filters.clear()
             isSearchFocused = false
         }
     }
@@ -117,6 +115,35 @@ struct ExploreMarketplaceView: View {
                         .foregroundStyle(.white)
 
                     Spacer(minLength: 0)
+
+                    // Near Me (default ON)
+                    Menu {
+                        Toggle("Near me", isOn: $filters.nearMeEnabled)
+                        Divider()
+                        ForEach([5, 10, 25, 50, 100], id: \.self) { km in
+                            Button {
+                                filters.nearMeEnabled = true
+                                filters.nearMeRadiusKm = Double(km)
+                            } label: {
+                                if filters.nearMeEnabled && Int(filters.nearMeRadiusKm) == km {
+                                    Label("\(km) km", systemImage: "checkmark")
+                                } else {
+                                    Text("\(km) km")
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: filters.nearMeEnabled ? "location.fill" : "location")
+                            Text("Near me")
+                                .font(.caption.weight(.semibold))
+                            Text("\(Int(filters.nearMeRadiusKm))km")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .foregroundStyle(Lx.gold)
+                    }
+                    .buttonStyle(.plain)
 
                     Button {
                         showFilters = true

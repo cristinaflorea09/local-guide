@@ -149,6 +149,19 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         return try snap.documents.compactMap { try $0.data(as: Tour.self) }
     }
 
+    /// Loads tours within a latitude range (used for map visible-region loading).
+    /// Note: This query intentionally does NOT filter by "active" to avoid composite indexes.
+    /// Filter "active" client-side.
+    func getToursByLatitudeRange(minLat: Double, maxLat: Double, limit: Int = 400) async throws -> [Tour] {
+        let snap = try await toursCol
+            .whereField("latitude", isGreaterThanOrEqualTo: minLat)
+            .whereField("latitude", isLessThanOrEqualTo: maxLat)
+            .order(by: "latitude")
+            .limit(to: limit)
+            .getDocuments()
+        return try snap.documents.compactMap { try $0.data(as: Tour.self) }
+    }
+
     func getToursForGuide(guideId: String) async throws -> [Tour] {
         let snap = try await toursCol.whereField("guideId", isEqualTo: guideId)
             .order(by: "createdAt", descending: true)
@@ -183,6 +196,19 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         var query: Query = experiencesCol.whereField("active", isEqualTo: true).order(by: "createdAt", descending: true)
         if let city, !city.isEmpty { query = query.whereField("city", isEqualTo: city) }
         let snap = try await query.getDocuments()
+        return try snap.documents.compactMap { try $0.data(as: Experience.self) }
+    }
+
+    /// Loads experiences within a latitude range (used for map visible-region loading).
+    /// Note: This query intentionally does NOT filter by "active" to avoid composite indexes.
+    /// Filter "active" client-side.
+    func getExperiencesByLatitudeRange(minLat: Double, maxLat: Double, limit: Int = 400) async throws -> [Experience] {
+        let snap = try await experiencesCol
+            .whereField("latitude", isGreaterThanOrEqualTo: minLat)
+            .whereField("latitude", isLessThanOrEqualTo: maxLat)
+            .order(by: "latitude")
+            .limit(to: limit)
+            .getDocuments()
         return try snap.documents.compactMap { try $0.data(as: Experience.self) }
     }
 

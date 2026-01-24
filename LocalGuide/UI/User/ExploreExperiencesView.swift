@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct ExploreExperiencesView: View {
     @EnvironmentObject var filters: MarketplaceFilterState
@@ -6,6 +7,7 @@ struct ExploreExperiencesView: View {
     @State private var experiences: [Experience] = []
     @State private var isLoading = false
     @State private var nextSlotByExpId: [String: Date] = [:]
+    @StateObject private var locationManager = LocationManager()
 
     var body: some View {
         ZStack {
@@ -39,8 +41,16 @@ struct ExploreExperiencesView: View {
                     .padding(18).padding(.top, 110)
                 }
         }
-        .task { await load() }
+        .task {
+            locationManager.requestPermission()
+            await load()
+        }
         .onChange(of: filters.city) { _, _ in Task { await load() } }
+        .onChange(of: filters.nearMeEnabled) { _, _ in Task { await load() } }
+        .onChange(of: filters.nearMeRadiusKm) { _, _ in Task { await load() } }
+        .onChange(of: locationManager.lastLocation) { _, _ in
+            Task { await load() }
+        }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
             Task { await load() }
         }
@@ -49,8 +59,24 @@ struct ExploreExperiencesView: View {
     private func load() async {
         isLoading = true
         do {
-            let city = filters.city.trimmingCharacters(in: .whitespacesAndNewlines)
-            experiences = try await FirestoreService.shared.getExperiences(city: city.isEmpty ? nil : city)
+            // Prefer Near Me (default ON). If location isn't available yet, fall back to regular query.
+            if filters.nearMeEnabled, let loc = locationManager.lastLocation {
+                let radiusKm = max(1, filters.nearMeRadiusKm)
+                let latDelta = radiusKm / 111.0
+                let minLat = loc.coordinate.latitude - latDelta
+                let maxLat = loc.coordinate.latitude + latDelta
+
+                let candidates = try await FirestoreService.shared.getExperiencesByLatitudeRange(minLat: minLat, maxLat: maxLat, limit: 600)
+                experiences = candidates.filter { e in
+                    guard e.active == true else { return false }
+                    guard let lat = e.latitude, let lon = e.longitude else { return false }
+                    let d = loc.distance(from: CLLocation(latitude: lat, longitude: lon))
+                    return (d / 1000.0) <= radiusKm
+                }
+            } else {
+                let city = filters.city.trimmingCharacters(in: .whitespacesAndNewlines)
+                experiences = try await FirestoreService.shared.getExperiences(city: city.isEmpty ? nil : city)
+            }
             await computeNextSlots()
         } catch {
             experiences = []
