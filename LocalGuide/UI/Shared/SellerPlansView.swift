@@ -4,6 +4,7 @@ import SwiftUI
 struct SellerPlansView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
 
     @State private var selected: SellerTier = .free
     @State private var isLoading = false
@@ -96,8 +97,6 @@ struct SellerPlansView: View {
                 .padding(18)
             }
         }
-        .navigationTitle("Plans")
-        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if let t = appState.session.currentUser?.sellerTier {
                 selected = t
@@ -185,3 +184,4 @@ struct SellerPlansView: View {
         isLoading = false
     }
 }
+

@@ -162,36 +162,6 @@
             endingLineNumber = "82"
             landmarkName = "load()"
             landmarkType = "7">
-            <Locations>
-               <Location
-                  uuid = "3EB11880-1D1A-4993-9623-2CFE51627A31 - a20b3b9679b0b9e3"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "(8) suspend resume partial function for LocalGuide.ExploreExperiencesView.load() async -&gt; ()"
-                  moduleName = "LocalGuide.debug.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/User/ExploreExperiencesView.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "82"
-                  endingLineNumber = "82">
-               </Location>
-               <Location
-                  uuid = "3EB11880-1D1A-4993-9623-2CFE51627A31 - fe96061d61ede3ec"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "(9) suspend resume partial function for LocalGuide.ExploreExperiencesView.load() async -&gt; ()"
-                  moduleName = "LocalGuide.debug.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/User/ExploreExperiencesView.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "82"
-                  endingLineNumber = "82">
-               </Location>
-            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy

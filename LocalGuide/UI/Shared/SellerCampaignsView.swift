@@ -102,7 +102,6 @@ struct SellerCampaignsView: View {
                 .padding(18)
             }
         }
-        .navigationTitle("Campaigns")
         .task { await load() }
         .refreshable { await load() }
     }

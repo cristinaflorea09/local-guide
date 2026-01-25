@@ -72,21 +72,43 @@ struct LuxuryTextField: View {
     @Binding var text: String
     var secure: Bool = false
     var keyboard: UIKeyboardType = .default
+    
+    // For password fields, allow toggling visibility with an eye button.
+    @State private var isRevealed: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            if secure {
-                SecureField("", text: $text)
-                    .keyboardType(keyboard)
-                    .textInputAutocapitalization(.never)
-            } else {
-                TextField("", text: $text)
-                    .keyboardType(keyboard)
-                    .textInputAutocapitalization(.never)
-            }
+            HStack(spacing: 10) {
+                            if secure {
+                                if isRevealed {
+                                    TextField("", text: $text)
+                                        .keyboardType(keyboard)
+                                        .textInputAutocapitalization(.never)
+                                } else {
+                                    SecureField("", text: $text)
+                                        .keyboardType(keyboard)
+                                        .textInputAutocapitalization(.never)
+                                }
+
+                                Button {
+                                    isRevealed.toggle()
+                                    Haptics.light()
+                                } label: {
+                                    Image(systemName: isRevealed ? "eye.slash" : "eye")
+                                        .foregroundStyle(.white.opacity(0.8))
+                                        .padding(.leading, 6)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(isRevealed ? "Hide password" : "Show password")
+                            } else {
+                                TextField("", text: $text)
+                                    .keyboardType(keyboard)
+                                    .textInputAutocapitalization(.never)
+                            }
+                        }
         }
         .padding(14)
         .background(

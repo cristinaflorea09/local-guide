@@ -39,7 +39,7 @@
 		FF8013092F16C42600E18390 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = FF8013082F16C42600E18390 /* StripePaymentSheet */; };
 		FF80130B2F16C42600E18390 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = FF80130A2F16C42600E18390 /* StripePayments */; };
 		FF80130D2F16C42600E18390 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = FF80130C2F16C42600E18390 /* StripePaymentsUI */; };
-		FFA819812F1A8C78004D9CA4 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FFA819802F1A8C78004D9CA4 /* GoogleService-Info.plist */; };
+		FFC71E682F265647005A53A0 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FFC71E672F265647005A53A0 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,7 +63,7 @@
 		FF80118D2F1682F100E18390 /* LocalGuide.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LocalGuide.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF80119D2F1682F200E18390 /* LocalGuideTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalGuideTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF8011A72F1682F200E18390 /* LocalGuideUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalGuideUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		FFA819802F1A8C78004D9CA4 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		FFC71E672F265647005A53A0 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -157,7 +157,7 @@
 		FF8011842F1682F100E18390 = {
 			isa = PBXGroup;
 			children = (
-				FFA819802F1A8C78004D9CA4 /* GoogleService-Info.plist */,
+				FFC71E672F265647005A53A0 /* GoogleService-Info.plist */,
 				FF80118F2F1682F100E18390 /* LocalGuide */,
 				FF8011A02F1682F200E18390 /* LocalGuideTests */,
 				FF8011AA2F1682F200E18390 /* LocalGuideUITests */,
@@ -333,7 +333,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FFA819812F1A8C78004D9CA4 /* GoogleService-Info.plist in Resources */,
+				FFC71E682F265647005A53A0 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
