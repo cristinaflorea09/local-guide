@@ -17,6 +17,7 @@ struct ChatsListView: View {
     }
 
     @State private var displayCache: [String: ThreadDisplay] = [:] // key: thread.id
+    @State private var selectedThread: ChatThread?
 
     var body: some View {
         NavigationStack {
@@ -34,8 +35,8 @@ struct ChatsListView: View {
 
                         LazyVStack(spacing: 12) {
                             ForEach(threads) { t in
-                                NavigationLink {
-                                    ChatView(thread: t)
+                                Button {
+                                    selectedThread = t
                                 } label: {
                                     LuxuryCard {
                                         HStack {
@@ -80,6 +81,20 @@ struct ChatsListView: View {
             .task { await load() }
             .onReceive(Timer.publish(every: 20, on: .main, in: .common).autoconnect()) { _ in
                 Task { await load() }
+            }
+            .fullScreenCover(item: $selectedThread) { thread in
+                NavigationStack {
+                    ChatView(thread: thread)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button {
+                                    selectedThread = nil
+                                } label: {
+                                    Image(systemName: "chevron.left")
+                                }
+                            }
+                        }
+                }
             }
         }
     }
