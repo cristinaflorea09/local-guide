@@ -5,6 +5,7 @@ struct CommunityFeedView: View {
     @State private var posts: [FeedPost] = []
     @State private var isLoading = false
     @State private var showComposer = false
+    @State private var selectedPost: FeedPost?
 
     var body: some View {
         NavigationStack {
@@ -30,8 +31,8 @@ struct CommunityFeedView: View {
                         if isLoading { ProgressView().tint(Lx.gold) }
 
                         ForEach(posts) { post in
-                            NavigationLink {
-                                PostDetailView(post: post)
+                            Button {
+                                selectedPost = post
                             } label: {
                                 FeedPostCard(post: post)
                             }
@@ -47,6 +48,21 @@ struct CommunityFeedView: View {
             .sheet(isPresented: $showComposer) {
                 PostComposerView(onPosted: { Task { await reload() } })
                     .environmentObject(appState)
+            }
+            .fullScreenCover(item: $selectedPost) { post in
+                NavigationStack {
+                    PostDetailView(post: post)
+                        .environmentObject(appState)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Button {
+                                    selectedPost = nil
+                                } label: {
+                                    Image(systemName: "chevron.left")
+                                }
+                            }
+                        }
+                }
             }
         }
     }

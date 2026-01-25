@@ -628,6 +628,39 @@ func sendMessage(threadId: String, senderId: String, text: String, userId: Strin
         return unwrapped
     }
 
+    func unlikePost(postId: String, userId: String) async throws -> Bool {
+        let ref = postsCol.document(postId)
+        // Firestore's runTransaction closure is non-throwing; handle errors inside and return a concrete Bool
+        let result: Bool? = try await db.runTransaction { tx, errorPointer in
+            do {
+                let snap = try tx.getDocument(ref)
+                var likedBy = (snap.get("likedBy") as? [String]) ?? []
+                if let idx = likedBy.firstIndex(of: userId) {
+                    likedBy.remove(at: idx)
+                    tx.updateData([
+                        "likedBy": likedBy,
+                        "likeCount": FieldValue.increment(Int64(-1))
+                    ], forDocument: ref)
+                    return true
+                } else {
+                    // Not liked; nothing to do
+                    return false
+                }
+            } catch {
+                // Set the error pointer so Firestore knows the transaction failed
+                if let errorPointer = errorPointer {
+                    errorPointer.pointee = error as NSError
+                }
+                return nil
+            }
+        } as? Bool
+        // If result is nil, the transaction failed and runTransaction threw; propagate a descriptive error
+        guard let unwrapped = result else {
+            throw NSError(domain: "FirestoreService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to complete unlike transaction"]) 
+        }
+        return unwrapped
+    }
+
     /// Backwards compatible API (still used in older screens). Positive delta increments likeCount.
     func likePost(postId: String, delta: Int) async throws {
         try await postsCol.document(postId).updateData(["likeCount": FieldValue.increment(Int64(delta))])

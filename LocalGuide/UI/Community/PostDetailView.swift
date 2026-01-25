@@ -34,7 +34,13 @@ struct PostDetailView: View {
                                 .foregroundStyle(.white.opacity(0.9))
                             HStack(spacing: 12) {
                                 Button {
-                                    Task { await toggleLike() }
+                                    Task {
+                                        if isLiked {
+                                            await toggleUnlike()
+                                        } else {
+                                            await toggleLike()
+                                        }
+                                    }
                                 } label: {
                                     Label(isLiked ? "Liked" : "Like", systemImage: isLiked ? "heart.fill" : "heart")
                                 }
@@ -144,6 +150,25 @@ struct PostDetailView: View {
             }
         } catch {
             // no-op
+        }
+    }
+
+    private func toggleUnlike() async {
+        guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard isLiked else { return }
+        do {
+            let didUnlike = try await FirestoreService.shared.unlikePost(postId: post.id, userId: uid)
+            if didUnlike {
+                post.likeCount = max(0, post.likeCount - 1)
+                if var arr = post.likedBy {
+                    arr.removeAll { $0 == uid }
+                    post.likedBy = arr
+                }
+                isLiked = false
+                Haptics.light()
+            }
+        } catch {
+            // no-op on failure
         }
     }
 
