@@ -258,5 +258,205 @@
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "BCCD8D27-FFD5-4ED3-A540-1D08B562FEDC"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "LocalGuide/Services/StorageService.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "15"
+            endingLineNumber = "15"
+            landmarkName = "uploadGuideAttestation(uid:data:fileName:contentType:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "6DCEBC03-904E-416D-8E42-F7C1358D601A"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "LocalGuide/UI/Guide/GuideProfileEditView.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "121"
+            endingLineNumber = "121"
+            landmarkName = "body"
+            landmarkType = "24">
+            <Locations>
+               <Location
+                  uuid = "6DCEBC03-904E-416D-8E42-F7C1358D601A - c377cecf2bbb36e6"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Result&lt;Swift.Array&lt;Foundation.URL&gt;, Swift.Error&gt;) -&gt; () in LocalGuide.GuideProfileEditView.body.getter : some"
+                  moduleName = "LocalGuide.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/Guide/GuideProfileEditView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "122"
+                  endingLineNumber = "122">
+               </Location>
+               <Location
+                  uuid = "6DCEBC03-904E-416D-8E42-F7C1358D601A - c377cecf2bbb36e6"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Result&lt;Swift.Array&lt;Foundation.URL&gt;, Swift.Error&gt;) -&gt; () in LocalGuide.GuideProfileEditView.body.getter : some"
+                  moduleName = "LocalGuide.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/Guide/GuideProfileEditView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "122"
+                  endingLineNumber = "122">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "287CF234-2A34-4910-981A-12F71C3991B5"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "LocalGuide/UI/Guide/GuideProfileEditView.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "128"
+            endingLineNumber = "128"
+            landmarkName = "body"
+            landmarkType = "24">
+            <Locations>
+               <Location
+                  uuid = "287CF234-2A34-4910-981A-12F71C3991B5 - c377cecf2bbb3603"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Result&lt;Swift.Array&lt;Foundation.URL&gt;, Swift.Error&gt;) -&gt; () in LocalGuide.GuideProfileEditView.body.getter : some"
+                  moduleName = "LocalGuide.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/Guide/GuideProfileEditView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "125"
+                  endingLineNumber = "125">
+               </Location>
+               <Location
+                  uuid = "287CF234-2A34-4910-981A-12F71C3991B5 - c377cecf2bbb39ac"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Result&lt;Swift.Array&lt;Foundation.URL&gt;, Swift.Error&gt;) -&gt; () in LocalGuide.GuideProfileEditView.body.getter : some"
+                  moduleName = "LocalGuide.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/Guide/GuideProfileEditView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "128"
+                  endingLineNumber = "128">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "371D096F-1F88-4C94-BDEC-A6BDF7042217"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "LocalGuide/UI/Guide/GuideProfileEditView.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "140"
+            endingLineNumber = "140"
+            landmarkName = "body"
+            landmarkType = "24">
+            <Locations>
+               <Location
+                  uuid = "371D096F-1F88-4C94-BDEC-A6BDF7042217 - c377cecf2bbb38b4"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Result&lt;Swift.Array&lt;Foundation.URL&gt;, Swift.Error&gt;) -&gt; () in LocalGuide.GuideProfileEditView.body.getter : some"
+                  moduleName = "LocalGuide.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/Guide/GuideProfileEditView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "136"
+                  endingLineNumber = "136">
+               </Location>
+               <Location
+                  uuid = "371D096F-1F88-4C94-BDEC-A6BDF7042217 - c377cecf2bbb3830"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Result&lt;Swift.Array&lt;Foundation.URL&gt;, Swift.Error&gt;) -&gt; () in LocalGuide.GuideProfileEditView.body.getter : some"
+                  moduleName = "LocalGuide.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/Guide/GuideProfileEditView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "140"
+                  endingLineNumber = "140">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "5A85EFB6-3EC6-4E3D-A791-9C09F4D39D76"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "LocalGuide/UI/Guide/GuideProfileEditView.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "143"
+            endingLineNumber = "143"
+            landmarkName = "body"
+            landmarkType = "24">
+            <Locations>
+               <Location
+                  uuid = "5A85EFB6-3EC6-4E3D-A791-9C09F4D39D76 - c377cecf2bbb38d1"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Result&lt;Swift.Array&lt;Foundation.URL&gt;, Swift.Error&gt;) -&gt; () in LocalGuide.GuideProfileEditView.body.getter : some"
+                  moduleName = "LocalGuide.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/Guide/GuideProfileEditView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "139"
+                  endingLineNumber = "139">
+               </Location>
+               <Location
+                  uuid = "5A85EFB6-3EC6-4E3D-A791-9C09F4D39D76 - c377cecf2bbb385d"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Result&lt;Swift.Array&lt;Foundation.URL&gt;, Swift.Error&gt;) -&gt; () in LocalGuide.GuideProfileEditView.body.getter : some"
+                  moduleName = "LocalGuide.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/cristinaflorea/Desktop/LocalGuide/LocalGuide/UI/Guide/GuideProfileEditView.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "143"
+                  endingLineNumber = "143">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
    </Breakpoints>
 </Bucket>

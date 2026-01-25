@@ -122,6 +122,9 @@ struct GuideProfileEditView: View {
             case .success(let urls):
                 guard let url = urls.first else { return }
                 do {
+                    guard url.startAccessingSecurityScopedResource() else {
+                        return
+                    }
                     let data = try Data(contentsOf: url)
                     attestationData = data
                     attestationFileName = url.lastPathComponent
@@ -132,6 +135,7 @@ struct GuideProfileEditView: View {
                     } else {
                         attestationContentType = "image/jpeg"
                     }
+                    url.stopAccessingSecurityScopedResource()
                 } catch {
                     message = error.localizedDescription
                 }
