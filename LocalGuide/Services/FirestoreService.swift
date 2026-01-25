@@ -546,6 +546,7 @@ func getChatThreadsForGuide(email: String, limit: Int = 100) async throws -> [Ch
     return try snap.documents.compactMap { try $0.data(as: ChatThread.self) }
 }
 
+
 func listenToMessages(threadId: String, onUpdate: @escaping ([ChatMessage]) -> Void) -> ListenerRegistration {
     threadsCol.document(threadId).collection("messages")
         .order(by: "createdAt", descending: false)

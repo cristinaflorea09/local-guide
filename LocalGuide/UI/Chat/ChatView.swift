@@ -125,8 +125,6 @@ struct ChatView: View {
                 await directory.loadHostIfNeeded(thread.email)
                 host = directory.host(thread.email)
             }
-            print(guide)
-            print(host)
             await MainActor.run {
                 if guide != nil {
                     self.counterpartName = guide?.displayName ?? "Guide"
