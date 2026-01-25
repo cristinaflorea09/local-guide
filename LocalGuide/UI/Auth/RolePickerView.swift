@@ -39,14 +39,6 @@ struct RolePickerView: View {
                             }
 
                             Divider().opacity(0.15)
-
-                            // Temporary: allow creating an Admin account for bootstrapping.
-                            // Remove this button after you finish setting up admin users.
-                            Button {
-                                router.path.append(.register(.admin))
-                            } label: {
-                                row(title: "Admin (temporary)", subtitle: "Backoffice / moderation", icon: "shield.lefthalf.filled")
-                            }
                         }
                     }
                 }

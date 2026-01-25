@@ -5,7 +5,7 @@ import Foundation
 /// Experiences are separate from Tours so Hosts can have distinct listings.
 struct Experience: Codable, Identifiable, Hashable {
     let id: String
-    var hostId: String
+    var hostEmail: String
     var title: String
     var description: String
     var city: String

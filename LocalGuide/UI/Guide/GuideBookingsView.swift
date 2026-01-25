@@ -5,10 +5,25 @@ struct GuideBookingsView: View {
     @State private var bookings: [Booking] = []
     @State private var isLoading = false
     @State private var toast: String?
+    @State private var tab: BookingTab = .upcoming
+
+    enum BookingTab: String, CaseIterable, Identifiable {
+        case upcoming = "Upcoming"
+        case past = "Past"
+        var id: String { rawValue }
+    }
 
     var body: some View {
-        NavigationStack {
-            List(bookings) { b in
+        VStack {
+            Picker("", selection: $tab) {
+                ForEach(BookingTab.allCases) { t in
+                    Text(t.rawValue).tag(t)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+
+            List(filteredBookings) { b in
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Status: \(b.status.rawValue)")
                         .font(.headline)
@@ -34,24 +49,38 @@ struct GuideBookingsView: View {
                     }
                 }
             }
-            .overlay {
-                if isLoading { ProgressView("Loading…") }
-                if !isLoading && bookings.isEmpty { ContentUnavailableView("No bookings yet", systemImage: "calendar") }
-            }
-            .navigationTitle("Bookings")
-            }
-            .onAppear { Task { await load() } }
-            .alert("", isPresented: Binding(get: { toast != nil }, set: { if !$0 { toast = nil } })) {
-                Button("OK", role: .cancel) { toast = nil }
-            } message: {
-                Text(toast ?? "")
-            }
         }
+        .overlay {
+            if isLoading { ProgressView("Loading…") }
+            if !isLoading && bookings.isEmpty { ContentUnavailableView("No bookings yet", systemImage: "calendar") }
+        }
+        .navigationTitle("Bookings")
+        .onAppear { Task { await load() } }
+        .alert("", isPresented: Binding(get: { toast != nil }, set: { if !$0 { toast = nil } })) {
+            Button("OK", role: .cancel) { toast = nil }
+        } message: {
+            Text(toast ?? "")
+        }
+    }
 
     private func load() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let providerEmail = appState.session.currentUser?.email else { return }
         isLoading = true
-        do { bookings = try await FirestoreService.shared.getBookingsForGuide(guideId: uid) } catch { bookings = [] }
+        do {
+            bookings = try await FirestoreService.shared.getBookingsForGuide(guideEmail: providerEmail)
+        } catch {
+            bookings = []
+        }
         isLoading = false
+    }
+
+    private var filteredBookings: [Booking] {
+        switch tab {
+        case .upcoming:
+            return bookings.filter { !$0.isPastEnd }
+        case .past:
+            return bookings.filter { $0.isPastEnd }
+        }
     }
 }

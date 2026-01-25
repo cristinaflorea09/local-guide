@@ -7,7 +7,7 @@ struct Review: Codable, Identifiable {
     /// tourId or experienceId
     var listingId: String
     /// guideId or hostId
-    var providerId: String
+    var providerEmail: String
     /// "guide" or "host" (optional but useful for analytics)
     var providerRole: String?
     /// booking id this review is associated with (prevents duplicates)

@@ -8,6 +8,7 @@ struct ExperienceDetailsView: View {
     @State private var host: HostProfile?
     @State private var reviews: [Review] = []
     @State private var loading = false
+    @State private var chatThread: ChatThread?
 
     @State private var peopleCount = 1
     @State private var selectedDay = Date()
@@ -97,7 +98,7 @@ struct ExperienceDetailsView: View {
 
                             Divider().opacity(0.15)
 
-                            AvailabilityPickerView(guideId: experience.hostId, selectedDate: selectedDay, selectedSlot: $selectedSlot)
+                            AvailabilityPickerView(guideEmail: experience.hostEmail, selectedDate: selectedDay, selectedSlot: $selectedSlot)
 
                             Divider().opacity(0.15)
 
@@ -151,18 +152,27 @@ struct ExperienceDetailsView: View {
             }
         }
         .task { await loadExtras() }
+        .navigationDestination(item: $chatThread) { thread in
+            ChatView(thread: thread)
+                .environmentObject(appState)
+        }
     }
 
     private func loadExtras() async {
         if loading { return }
         loading = true
         defer { loading = false }
-        host = try? await FirestoreService.shared.getHostProfile(hostId: experience.hostId)
+        host = try? await FirestoreService.shared.getHostProfile(hostEmail:experience.hostEmail)
         reviews = (try? await FirestoreService.shared.getReviewsForListing(listingType: "experience", listingId: experience.id, limit: 20)) ?? []
     }
 
     private func openChat() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
-        do { _ = try await FirestoreService.shared.getOrCreateThread(userId: uid, guideId: experience.hostId, tourId: experience.id) } catch { }
+        do {
+            let thread = try await FirestoreService.shared.getOrCreateThread(userId: uid, email: experience.hostEmail, tourId: experience.id)
+            await MainActor.run { chatThread = thread }
+        } catch {
+            // no-op
+        }
     }
 }

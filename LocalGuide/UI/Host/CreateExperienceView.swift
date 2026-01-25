@@ -223,6 +223,7 @@ struct CreateExperienceView: View {
     }
 
     private func publish() async {
+        guard let hostEmail = appState.session.firebaseUser?.email else { return }
         guard let uid = appState.session.firebaseUser?.uid else { return }
         guard let coverImage else {
             message = "Please choose a cover image."
@@ -258,7 +259,7 @@ struct CreateExperienceView: View {
 
             let exp = Experience(
                 id: UUID().uuidString,
-                hostId: uid,
+                hostEmail: hostEmail,
                 title: title,
                 description: description,
                 city: city,
@@ -298,7 +299,7 @@ struct CreateExperienceView: View {
                     let end = start.addingTimeInterval(TimeInterval(durationMinutes * 60))
                     let slot = AvailabilitySlot(
                         id: UUID().uuidString,
-                        guideId: uid, // use guideId field as providerId for both guides and hosts
+                        email: hostEmail, // use guideId field as providerId for both guides and hosts
                         start: start,
                         end: end,
                         status: .open,

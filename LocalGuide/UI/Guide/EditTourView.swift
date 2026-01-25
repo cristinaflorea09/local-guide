@@ -20,6 +20,7 @@ struct EditTourView: View {
     @State private var authenticityScore: Double
     @State private var latitude: String
     @State private var longitude: String
+    @State private var address: String
     @State private var active: Bool
 
     @State private var coverImage: UIImage?
@@ -40,6 +41,7 @@ struct EditTourView: View {
         _authenticityScore = State(initialValue: Double(tour.authenticityScore ?? 50))
         _latitude = State(initialValue: tour.latitude.map { String($0) } ?? "")
         _longitude = State(initialValue: tour.longitude.map { String($0) } ?? "")
+        _address = State(initialValue: tour.address ?? "")
         _active = State(initialValue: tour.active)
     }
 
@@ -92,7 +94,7 @@ struct EditTourView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                             CityPicker(city: $city, country: "")
-
+                            LuxuryTextField(title: "Address (optional)", text: $address)
                             Text("Cover image (optional)")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
@@ -133,7 +135,7 @@ struct EditTourView: View {
     }
 
     private func save() async {
-        guard let uid = appState.session.firebaseUser?.uid, uid == tour.guideId else {
+        guard let guideEmail = appState.session.firebaseUser?.email, guideEmail == tour.guideEmail else {
             message = "You can only edit your own tours."
             return
         }
@@ -147,6 +149,7 @@ struct EditTourView: View {
                 "title": title,
                 "description": description,
                 "city": city,
+                "address": address.trimmingCharacters(in: .whitespacesAndNewlines),
                 "durationMinutes": durationMinutes,
                 "price": Double(price) ?? tour.price,
                 "maxPeople": maxPeople,
@@ -160,7 +163,8 @@ struct EditTourView: View {
             ]
 
             if let coverImage {
-                let coverPath = "tours/\(uid)/\(UUID().uuidString).jpg"
+                let userEmail = appState.session.firebaseUser?.email ?? tour.guideEmail
+                let coverPath = "tours/\(userEmail)/\(UUID().uuidString).jpg"
                 let url = try await StorageService.shared.uploadJPEG(coverImage, path: coverPath)
                 fields["coverPhotoURL"] = url.absoluteString
             }
@@ -173,3 +177,4 @@ struct EditTourView: View {
         }
     }
 }
+

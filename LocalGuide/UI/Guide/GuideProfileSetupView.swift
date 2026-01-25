@@ -159,8 +159,9 @@ struct GuideProfileSetupView: View {
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
 
+            let profileId = appState.session.currentUser?.id ?? (appState.session.firebaseUser?.email?.lowercased() ?? uid)
             let profile = GuideProfile(
-                id: uid,
+                id: profileId,
                 displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
                 country: country,
                 city: city,

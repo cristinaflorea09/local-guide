@@ -104,11 +104,11 @@ struct HostExperiencesView: View {
     }
 
     private func load() async {
-        guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let email = appState.session.firebaseUser?.email else { return }
         isLoading = true
         defer { isLoading = false }
         do {
-            experiences = try await FirestoreService.shared.getExperiencesForHost(hostId: uid)
+            experiences = try await FirestoreService.shared.getExperiencesForHost(hostEmail: email)
         } catch {
             experiences = []
         }

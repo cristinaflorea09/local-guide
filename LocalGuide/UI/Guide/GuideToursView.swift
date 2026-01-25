@@ -54,9 +54,9 @@ struct GuideToursView: View {
     }
 
     private func load() async {
-        guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let email = appState.session.firebaseUser?.email else { return }
         isLoading = true
-        do { tours = try await FirestoreService.shared.getToursForGuide(guideId: uid) } catch { tours = [] }
+        do { tours = try await FirestoreService.shared.getToursForGuide(guideEmail: email) } catch { tours = [] }
         isLoading = false
     }
 }

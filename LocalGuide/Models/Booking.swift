@@ -22,14 +22,14 @@ struct Booking: Codable, Identifiable {
     let id: String
     var tourId: String
     var slotId: String
-    var guideId: String
+    var guideEmail: String
     var userId: String
 
     /// New unified marketplace fields (Tours + Experiences).
     /// Backward compatible: for tours these are often nil and can be derived from tourId/guideId.
     var listingType: String?
     var listingId: String?
-    var providerId: String?
+    var providerEmail: String?
 
     /// ISO8601 start/end strings stored by backend.
     var startISO: String?
@@ -82,11 +82,11 @@ struct Booking: Codable, Identifiable {
         case id
         case tourId
         case slotId
-        case guideId
+        case guideEmail
         case userId
         case listingType
         case listingId
-        case providerId
+        case providerEmail
         case startISO
         case endISO
         case date
@@ -112,5 +112,5 @@ extension Booking {
 extension Booking {
     var effectiveListingType: String { (listingType ?? "tour").lowercased() }
     var effectiveListingId: String { listingId ?? tourId }
-    var effectiveProviderId: String { providerId ?? guideId }
+    var effectiveProviderId: String { providerEmail ?? guideEmail }
 }

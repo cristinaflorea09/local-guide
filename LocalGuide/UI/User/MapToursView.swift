@@ -152,14 +152,14 @@ struct MapToursView: View {
                     }
                 }
 
-//                if isLoading {
-//                    VStack {
-//                        LuxuryCard { ProgressView("Loading…").tint(Lx.gold) }
-//                            .padding(.top, 70)
-//                            .padding(.horizontal, 12)
-//                        Spacer()
-//                    }
-//                }
+                if isLoading {
+                    VStack {
+                        LuxuryCard { ProgressView("Loading…").tint(Lx.gold) }
+                            .padding(.top, 70)
+                            .padding(.horizontal, 12)
+                        Spacer()
+                    }
+                }
 
                 // Permission / failure hint
                 if locationManager.authorization == .denied || locationManager.authorization == .restricted {
@@ -362,8 +362,8 @@ struct MapToursView: View {
             }
 
             // Prefetch profiles used by callouts/details.
-            for t in tours { await directory.loadGuideIfNeeded(t.guideId) }
-            for e in experiences { await directory.loadHostIfNeeded(e.hostId) }
+            for t in tours { await directory.loadGuideIfNeeded(t.guideEmail) }
+            for e in experiences { await directory.loadHostIfNeeded(e.hostEmail) }
         } catch {
             print("Map region load failed:", error.localizedDescription)
         }

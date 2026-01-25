@@ -256,6 +256,41 @@ private struct TripPlannerFormView: View {
 
             let budget = Double(budgetPerDayText.replacingOccurrences(of: ",", with: "."))
 
+            // Fetch in-app listings for the destination. The AI will be constrained to use ONLY these.
+            // Keep the catalog compact: include only the fields the backend prompt uses.
+            let cityTrim = city.trimmingCharacters(in: .whitespacesAndNewlines)
+            let tours = try await FirestoreService.shared.getTours(city: cityTrim.isEmpty ? nil : cityTrim)
+            let exps = try await FirestoreService.shared.getExperiences(city: cityTrim.isEmpty ? nil : cityTrim)
+
+            func tourDict(_ t: Tour) -> [String: Any] {
+                [
+                    "id": t.id,
+                    "title": t.title,
+                    "category": t.category as Any,
+                    "price": t.price,
+                    "durationMinutes": t.durationMinutes,
+                    "ratingAvg": t.ratingAvg as Any,
+                    "ratingCount": t.ratingCount as Any,
+                    "instantBook": t.instantBook as Any,
+                ]
+            }
+            func expDict(_ e: Experience) -> [String: Any] {
+                [
+                    "id": e.id,
+                    "title": e.title,
+                    "category": e.category as Any,
+                    "price": e.price,
+                    "durationMinutes": e.durationMinutes,
+                    "ratingAvg": e.ratingAvg as Any,
+                    "ratingCount": e.ratingCount as Any,
+                    "instantBook": e.instantBook as Any,
+                ]
+            }
+            let catalog: [String: Any] = [
+                "tours": tours.map(tourDict),
+                "experiences": exps.map(expDict),
+            ]
+
             let code = appState.settings.languageCode
             let res = try await TripPlannerService.shared.generateTripPlan(
                 country: country,
@@ -266,27 +301,13 @@ private struct TripPlannerFormView: View {
                 budgetPerDay: budget,
                 pace: pace,
                 groupSize: groupSize,
+                catalog: catalog,
                 languageCode: code
             )
             self.tripPlanId = res.tripPlanId
             self.plan = res.plan
 
-            // Link in-app tours/experiences to this plan using a heuristic matcher.
-            // This prefers listings that match interests + budget + distance + availability within dates.
-            await linkInAppRecommendations(
-                tripPlanId: res.tripPlanId,
-                inputs: .init(
-                    city: city,
-                    country: country,
-                    startDate: startDate,
-                    endDate: endDate,
-                    interests: interests,
-                    budgetPerDay: budget,
-                    pace: pace,
-                    groupSize: groupSize,
-                    userLocation: locationManager.lastLocation
-                )
-            )
+            // The backend already built the itinerary using only in-app listings via the catalog.
         } catch {
             self.errorText = error.localizedDescription
         }

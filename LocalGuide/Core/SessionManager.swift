@@ -87,7 +87,8 @@ final class SessionManager: ObservableObject {
     func refreshCurrentUserIfAvailable() async {
         guard let uid = firebaseUser?.uid else { return }
         do {
-            currentUser = try await FirestoreService.shared.getUser(uid: uid)
+            // User docs are keyed by lowercased email after migration.
+            currentUser = try await FirestoreService.shared.getUserByAuth(uid: uid, email: firebaseUser?.email)
         } catch { }
     }
 }

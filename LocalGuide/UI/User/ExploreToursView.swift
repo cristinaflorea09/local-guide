@@ -10,6 +10,49 @@ struct ExploreToursView: View {
     @State private var nextSlotByTourId: [String: Date] = [:]
     @StateObject private var directory = ProfileDirectory()
     @StateObject private var locationManager = LocationManager()
+    
+    private var premiumBanner: some View {
+        Group {
+            if appState.subscription.isPremium {
+                LuxuryCard {
+                    HStack {
+                        Image(systemName: "crown.fill").foregroundStyle(Lx.gold)
+                        Text("Premium: 10% off bookings").font(.subheadline.weight(.semibold))
+                        Spacer()
+                    }
+                }
+            }
+        }
+    }
+    
+    private var loadingSkeletons: some View {
+        Group {
+            if isLoading {
+                LuxuryCard { SkeletonListingRow() }
+                LuxuryCard { SkeletonListingRow() }
+                LuxuryCard { SkeletonListingRow() }
+            }
+        }
+    }
+    
+    private var tourList: some View {
+        LazyVStack(spacing: 14) {
+            ForEach(sortedAndFilteredTours) { tour in
+                Button {
+                    onSelect(tour)
+                } label: {
+                    TourCard(
+                        tour: tour,
+                        guideName: directory.guide(tour.guideEmail)?.displayName,
+                        guidePhotoURL: directory.guide(tour.guideEmail)?.photoURL,
+                        guideRating: directory.guide(tour.guideEmail)?.ratingAvg,
+                        reviewCount: directory.guide(tour.guideEmail)?.ratingCount
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -17,38 +60,11 @@ struct ExploreToursView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        if appState.subscription.isPremium {
-                            LuxuryCard {
-                                HStack {
-                                    Image(systemName: "crown.fill").foregroundStyle(Lx.gold)
-                                    Text("Premium: 10% off bookings").font(.subheadline.weight(.semibold))
-                                    Spacer()
-                                }
-                            }
-                        }
+                        premiumBanner
 
-                        if isLoading {
-                            LuxuryCard { SkeletonListingRow() }
-                            LuxuryCard { SkeletonListingRow() }
-                            LuxuryCard { SkeletonListingRow() }
-                        }
+                        loadingSkeletons
 
-                        LazyVStack(spacing: 14) {
-                            ForEach(sortedAndFilteredTours) { tour in
-                                Button {
-                                    onSelect(tour)
-                                } label: {
-                                    TourCard(
-                                        tour: tour,
-                                        guideName: directory.guide(tour.guideId)?.displayName,
-                                        guidePhotoURL: directory.guide(tour.guideId)?.photoURL,
-                                        guideRating: directory.guide(tour.guideId)?.ratingAvg,
-                                        reviewCount: directory.guide(tour.guideId)?.ratingCount
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
+                        tourList
 
                         if !isLoading && sortedAndFilteredTours.isEmpty {
                             Text("No tours found.")
@@ -97,7 +113,7 @@ struct ExploreToursView: View {
                 let city = filters.city.trimmingCharacters(in: .whitespacesAndNewlines)
                 tours = try await FirestoreService.shared.getTours(city: city.isEmpty ? nil : city)
             }
-            for t in tours { await directory.loadGuideIfNeeded(t.guideId) }
+            for t in tours { await directory.loadGuideIfNeeded(t.guideEmail) }
             await computeNextSlots()
         } catch {
             tours = []
@@ -109,40 +125,42 @@ struct ExploreToursView: View {
         let filtered = tours.filter(matchesFilters)
         switch filters.sortOption {
         case .newest:
-            return filtered.sorted { $0.createdAt > $1.createdAt }
+            return filtered.sorted(by: { (lhs: Tour, rhs: Tour) -> Bool in
+                return lhs.createdAt > rhs.createdAt
+            })
         case .bestRated:
-            return filtered.sorted {
-                let a = $0.ratingAvg ?? directory.guide($0.guideId)?.ratingAvg ?? 0
-                let b = $1.ratingAvg ?? directory.guide($1.guideId)?.ratingAvg ?? 0
+            return filtered.sorted(by: { (lhs: Tour, rhs: Tour) -> Bool in
+                let a = lhs.ratingAvg ?? directory.guide(lhs.guideEmail)?.ratingAvg ?? 0
+                let b = rhs.ratingAvg ?? directory.guide(rhs.guideEmail)?.ratingAvg ?? 0
                 if a == b {
-                    let ca = $0.ratingCount ?? directory.guide($0.guideId)?.ratingCount ?? 0
-                    let cb = $1.ratingCount ?? directory.guide($1.guideId)?.ratingCount ?? 0
+                    let ca = lhs.ratingCount ?? directory.guide(lhs.guideEmail)?.ratingCount ?? 0
+                    let cb = rhs.ratingCount ?? directory.guide(rhs.guideEmail)?.ratingCount ?? 0
                     return ca > cb
                 }
                 return a > b
-            }
+            })
         case .mostReviewed:
-            return filtered.sorted {
-                let ca = $0.ratingCount ?? directory.guide($0.guideId)?.ratingCount ?? 0
-                let cb = $1.ratingCount ?? directory.guide($1.guideId)?.ratingCount ?? 0
+            return filtered.sorted(by: { (lhs: Tour, rhs: Tour) -> Bool in
+                let ca = lhs.ratingCount ?? directory.guide(lhs.guideEmail)?.ratingCount ?? 0
+                let cb = rhs.ratingCount ?? directory.guide(rhs.guideEmail)?.ratingCount ?? 0
                 if ca == cb {
-                    let a = $0.ratingAvg ?? directory.guide($0.guideId)?.ratingAvg ?? 0
-                    let b = $1.ratingAvg ?? directory.guide($1.guideId)?.ratingAvg ?? 0
+                    let a = lhs.ratingAvg ?? directory.guide(lhs.guideEmail)?.ratingAvg ?? 0
+                    let b = rhs.ratingAvg ?? directory.guide(rhs.guideEmail)?.ratingAvg ?? 0
                     return a > b
                 }
                 return ca > cb
-            }
+            })
         case .soonestAvailable:
-            return filtered.sorted {
-                let da = nextSlotByTourId[$0.id] ?? .distantFuture
-                let db = nextSlotByTourId[$1.id] ?? .distantFuture
+            return filtered.sorted(by: { (lhs: Tour, rhs: Tour) -> Bool in
+                let da = nextSlotByTourId[lhs.id] ?? .distantFuture
+                let db = nextSlotByTourId[rhs.id] ?? .distantFuture
                 if da == db {
-                    let a = $0.ratingAvg ?? 0
-                    let b = $1.ratingAvg ?? 0
+                    let a = lhs.ratingAvg ?? 0
+                    let b = rhs.ratingAvg ?? 0
                     return a > b
                 }
                 return da < db
-            }
+            })
         default:
             return filtered
         }
@@ -191,7 +209,7 @@ struct ExploreToursView: View {
         }
 
         // Rating
-        let rating = tour.ratingAvg ?? directory.guide(tour.guideId)?.ratingAvg ?? 0
+        let rating = tour.ratingAvg ?? directory.guide(tour.guideEmail)?.ratingAvg ?? 0
         if rating < filters.minRating { return false }
 
         return true

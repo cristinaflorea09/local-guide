@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct GuideProfileEditView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
 
     @State private var displayName = ""
     @State private var country = ""
@@ -145,8 +146,9 @@ struct GuideProfileEditView: View {
 
     private func load() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let guideEmail = appState.session.currentUser?.email else { return }
         do {
-            let p = try await FirestoreService.shared.getGuideProfile(guideId: uid)
+            let p = try await FirestoreService.shared.getGuideProfile(guideEmail: guideEmail)
             displayName = p.displayName
             country = p.country
             city = p.city
@@ -161,11 +163,12 @@ struct GuideProfileEditView: View {
 
     private func save() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let guideEmail = appState.session.currentUser?.email else { return }
         isLoading = true
         message = nil
 
         do {
-            var p = try await FirestoreService.shared.getGuideProfile(guideId: uid)
+            var p = try await FirestoreService.shared.getGuideProfile(guideEmail: guideEmail)
 
             p.displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
             p.country = country
@@ -189,6 +192,8 @@ struct GuideProfileEditView: View {
             try await FirestoreService.shared.updateGuideProfile(p)
             message = "Saved ✅"
             Haptics.success()
+            await appState.session.refreshCurrentUserIfAvailable()
+            await MainActor.run { dismiss() }
         } catch {
             message = error.localizedDescription
         }

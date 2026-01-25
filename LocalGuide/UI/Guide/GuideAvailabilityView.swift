@@ -3,14 +3,27 @@ import SwiftUI
 struct GuideAvailabilityView: View {
     @EnvironmentObject var appState: AppState
     @State private var slots: [AvailabilitySlot] = []
+    @State private var tours: [Tour] = []
+    @State private var selectedTourId: String = ""
     @State private var start = Date()
     @State private var end = Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date()
     @State private var isLoading = false
     @State private var message: String?
 
     var body: some View {
-        NavigationStack {
-            Form {
+        Form {
+                Section("Tour") {
+                    if tours.isEmpty {
+                        Text("No tours yet.").foregroundStyle(.secondary)
+                    } else {
+                        Picker("Select tour", selection: $selectedTourId) {
+                            Text("Select…").tag("")
+                            ForEach(tours) { t in
+                                Text(t.title).tag(t.id)
+                            }
+                        }
+                    }
+                }
                 Section("Add availability slot") {
                     DatePicker("Start", selection: $start, displayedComponents: [.date, .hourAndMinute])
                     DatePicker("End", selection: $end, displayedComponents: [.date, .hourAndMinute])
@@ -18,7 +31,7 @@ struct GuideAvailabilityView: View {
                     Button("Add slot") {
                         Task { await addSlot() }
                     }
-                    .disabled(isLoading || end <= start)
+                    .disabled(isLoading || end <= start || selectedTourId.isEmpty)
                 }
 
                 if let message {
@@ -27,7 +40,7 @@ struct GuideAvailabilityView: View {
 
                 Section("Upcoming slots") {
                     if slots.isEmpty {
-                        Text("No slots yet. Add some availability.")
+                        Text(selectedTourId.isEmpty ? "Select a tour to manage availability." : "No slots yet. Add some availability.")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(slots) { s in
@@ -47,24 +60,42 @@ struct GuideAvailabilityView: View {
             .navigationTitle("Availability")
             .toolbar { EditButton() }
             .onAppear { Task { await load() } }
-        }
+            .onChange(of: selectedTourId) { _, _ in Task { await loadSlots() } }
     }
 
     private func load() async {
-        guard let gid = appState.session.firebaseUser?.uid else { return }
+        guard let email = appState.session.firebaseUser?.email else { return }
         isLoading = true
-        do { slots = try await FirestoreService.shared.getAvailabilityForGuide(guideId: gid) } catch { slots = [] }
-        isLoading = false
+        defer { isLoading = false }
+        do {
+            tours = try await FirestoreService.shared.getToursForGuide(guideEmail: email)
+            if selectedTourId.isEmpty, let first = tours.first { selectedTourId = first.id }
+            await loadSlots()
+        } catch {
+            tours = []
+            slots = []
+        }
+    }
+
+    private func loadSlots() async {
+        guard !selectedTourId.isEmpty else { slots = []; return }
+        do {
+            slots = try await FirestoreService.shared.getAvailabilityForListing(listingType: "tour", listingId: selectedTourId)
+        } catch {
+            slots = []
+        }
     }
 
     private func addSlot() async {
-        guard let gid = appState.session.firebaseUser?.uid else { return }
+        guard let email = appState.session.firebaseUser?.email else { return }
         isLoading = true
         message = nil
         do {
             let slot = AvailabilitySlot(
                 id: UUID().uuidString,
-                guideId: gid,
+                email: email,
+                listingType: "tour",
+                listingId: selectedTourId,
                 start: start,
                 end: end,
                 status: .open,
@@ -73,7 +104,7 @@ struct GuideAvailabilityView: View {
             )
             try await FirestoreService.shared.createAvailability(slot)
             message = "Slot added ✅"
-            await load()
+            await loadSlots()
         } catch {
             message = error.localizedDescription
         }
@@ -86,7 +117,7 @@ struct GuideAvailabilityView: View {
             for id in ids {
                 try await FirestoreService.shared.deleteAvailability(slotId: id)
             }
-            await load()
+            await loadSlots()
         } catch { }
     }
 }

@@ -95,8 +95,9 @@ struct HostProfileSetupView: View {
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
 
+            let profileId = appState.session.currentUser?.id ?? (appState.session.firebaseUser?.email?.lowercased() ?? uid)
             let profile = HostProfile(
-                id: uid,
+                id: profileId,
                 brandName: brandName.trimmingCharacters(in: .whitespacesAndNewlines),
                 country: country,
                 city: city,

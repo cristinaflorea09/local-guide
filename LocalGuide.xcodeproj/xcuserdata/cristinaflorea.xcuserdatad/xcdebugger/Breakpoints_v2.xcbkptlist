@@ -197,32 +197,64 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "885264EA-D183-49EA-B254-8F19775B0451"
+            uuid = "2C3B189E-2E2A-4C24-91A5-8562638C5B9B"
             shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "LocalGuide/Services/TripPlannerService.swift"
+            filePath = "LocalGuide/UI/Chat/ChatView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "20"
-            endingLineNumber = "20"
-            landmarkName = "generateTripPlan(country:city:startDate:endDate:interests:budgetPerDay:pace:groupSize:languageCode:)"
+            startingLineNumber = "122"
+            endingLineNumber = "122"
+            landmarkName = "loadCounterpart()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "5A0AFC84-884F-4E5B-A714-180639A54580"
-            shouldBeEnabled = "Yes"
+            uuid = "707EF8A2-B5F7-4359-B43D-BCFCEC2B1F87"
+            shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "LocalGuide/UI/User/TripPlannerView.swift"
+            filePath = "LocalGuide/UI/Shared/ProfileDirectory.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "252"
-            endingLineNumber = "252"
-            landmarkName = "generate()"
+            startingLineNumber = "16"
+            endingLineNumber = "16"
+            landmarkName = "loadGuideIfNeeded(_:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "6E580327-A69C-49A7-A815-D9E23BF778D7"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "LocalGuide/UI/Auth/RegisterView.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "274"
+            endingLineNumber = "274"
+            landmarkName = "register()"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "B392C6FC-927B-49AC-A6AD-B42F17FBE2F7"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "LocalGuide/Services/FirestoreService.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "370"
+            endingLineNumber = "370"
+            landmarkName = "getBookingsForHost(hostEmail:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

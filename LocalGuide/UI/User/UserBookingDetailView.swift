@@ -113,14 +113,14 @@ struct UserBookingDetailView: View {
             if let exp = try? await FirestoreService.shared.getExperience(experienceId: lid) {
                 listingTitle = exp.title
             }
-            if let host = try? await FirestoreService.shared.getHostProfile(hostId: pid) {
+            if let host = try? await FirestoreService.shared.getHostProfile(hostEmail: pid) {
                 providerName = host.brandName
             }
         } else {
             if let tour = try? await FirestoreService.shared.getTour(tourId: lid) {
                 listingTitle = tour.title
             }
-            if let guide = try? await FirestoreService.shared.getGuideProfile(guideId: pid) {
+            if let guide = try? await FirestoreService.shared.getGuideProfile(guideEmail: pid) {
                 providerName = guide.displayName
             }
         }

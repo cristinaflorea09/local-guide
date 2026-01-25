@@ -86,8 +86,6 @@ struct EditExperienceView: View {
 
                             LuxuryTextField(title: "Address (optional)", text: $address)
 
-                            LuxuryTextField(title: "Address (optional)", text: $address)
-
                             Stepper("Duration: \(durationMinutes) min", value: $durationMinutes, in: 30...480, step: 30)
                             Stepper("Max people: \(maxPeople)", value: $maxPeople, in: 1...30)
                             LuxuryTextField(title: "Price (€)", text: $price, keyboard: .decimalPad)
@@ -126,8 +124,8 @@ struct EditExperienceView: View {
     }
 
     private func save() async {
-        guard let uid = appState.session.firebaseUser?.uid else { return }
-        guard uid == experience.hostId else {
+        guard let hostEmail = appState.session.firebaseUser?.email else { return }
+        guard hostEmail == experience.hostEmail else {
             message = "You can only edit your own experiences."
             return
         }
@@ -139,7 +137,7 @@ struct EditExperienceView: View {
         do {
             var coverURL = experience.coverPhotoURL
             if let img = newCoverImage {
-                let coverPath = "experiences/\(uid)/\(UUID().uuidString).jpg"
+                let coverPath = "experiences/\(hostEmail)/\(UUID().uuidString).jpg"
                 let url = try await StorageService.shared.uploadJPEG(img, path: coverPath)
                 coverURL = url.absoluteString
             }

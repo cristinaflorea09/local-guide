@@ -100,13 +100,13 @@ struct HostDashboardView: View {
     private func load() async {
         isLoading = true
         defer { isLoading = false }
-        guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let email = appState.session.firebaseUser?.email else { return }
         do {
-            experiencesCount = (try await FirestoreService.shared.getExperiencesForHost(hostId: uid)).count
+            experiencesCount = (try await FirestoreService.shared.getExperiencesForHost(hostEmail: email)).count
         } catch { }
         do {
             // Keep dashboard count consistent with the bookings screen (confirmed only).
-            let all = try await FirestoreService.shared.getBookingsForHost(hostId: uid)
+            let all = try await FirestoreService.shared.getBookingsForHost(hostEmail: email)
             bookingsCount = all.filter { $0.status == .confirmed }.count
         } catch { }
     }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HostProfileEditView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
 
     @State private var brandName = ""
     @State private var country = ""
@@ -85,8 +86,9 @@ struct HostProfileEditView: View {
 
     private func load() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let hostEmail =  appState.session.firebaseUser?.email else { return }
         do {
-            let p = try await FirestoreService.shared.getHostProfile(hostId: uid)
+            let p = try await FirestoreService.shared.getHostProfile(hostEmail: hostEmail)
             brandName = p.brandName
             country = p.country
             city = p.city
@@ -100,11 +102,12 @@ struct HostProfileEditView: View {
 
     private func save() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let hostEmail = appState.session.firebaseUser?.email else { return }
         isLoading = true
         message = nil
 
         do {
-            var p = try await FirestoreService.shared.getHostProfile(hostId: uid)
+            var p = try await FirestoreService.shared.getHostProfile(hostEmail: hostEmail)
             p.brandName = brandName.trimmingCharacters(in: .whitespacesAndNewlines)
             p.country = country
             p.city = city
@@ -118,6 +121,8 @@ struct HostProfileEditView: View {
             try await FirestoreService.shared.updateHostProfile(p)
             message = "Saved ✅"
             Haptics.success()
+            await appState.session.refreshCurrentUserIfAvailable()
+            await MainActor.run { dismiss() }
         } catch {
             message = error.localizedDescription
         }

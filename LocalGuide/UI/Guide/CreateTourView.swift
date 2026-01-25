@@ -167,6 +167,7 @@ struct CreateTourView: View {
     }
 
     private func publish() async {
+        guard let guideEmail = appState.session.firebaseUser?.email else { return }
         guard let uid = appState.session.firebaseUser?.uid else { return }
         guard let coverImage else {
             message = "Please choose a cover image."
@@ -204,7 +205,7 @@ struct CreateTourView: View {
 
             let tour = Tour(
                 id: UUID().uuidString,
-                guideId: uid,
+                guideEmail: guideEmail,
                 title: title,
                 description: description,
                 city: city,

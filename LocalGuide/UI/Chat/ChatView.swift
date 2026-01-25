@@ -108,7 +108,7 @@ struct ChatView: View {
                 senderId: uid,
                 text: trimmed,
                 userId: thread.userId,
-                guideId: thread.guideId,
+                email: thread.email,
                 tourId: thread.tourId
             )
         } catch { }
@@ -118,11 +118,24 @@ struct ChatView: View {
     private func loadCounterpart() async {
         // If I'm the user, show guide. If I'm the guide, show traveler.
         if let myId = appState.session.firebaseUser?.uid, myId == thread.userId {
-            await directory.loadGuideIfNeeded(thread.guideId)
-            let g = directory.guide(thread.guideId)
+            await directory.loadGuideIfNeeded(thread.email)
+            let guide = directory.guide(thread.email)
+            var host: HostProfile? = nil
+            if guide == nil {
+                await directory.loadHostIfNeeded(thread.email)
+                host = directory.host(thread.email)
+            }
+            print(guide)
+            print(host)
             await MainActor.run {
-                self.counterpartName = g?.displayName ?? "Guide"
-                self.counterpartPhotoURL = g?.photoURL
+                if guide != nil {
+                    self.counterpartName = guide?.displayName ?? "Guide"
+                    self.counterpartPhotoURL = guide?.photoURL
+
+                } else {
+                    self.counterpartName = host?.brandName ?? "Host"
+                    self.counterpartPhotoURL = host?.photoURL
+                }
             }
         } else {
             await directory.loadUserIfNeeded(thread.userId)

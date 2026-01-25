@@ -111,8 +111,8 @@ struct GuideDashboardView: View {
         if isLoading { return }
         isLoading = true
         defer { isLoading = false }
-        guard let uid = appState.session.firebaseUser?.uid else { return }
-        do { toursCount = (try await FirestoreService.shared.getToursForGuide(guideId: uid)).count } catch { }
-        do { bookingsCount = (try await FirestoreService.shared.getBookingsForGuide(guideId: uid)).count } catch { }
+        guard let email = appState.session.firebaseUser?.email else { return }
+        do { toursCount = (try await FirestoreService.shared.getToursForGuide(guideEmail: email)).count } catch { }
+        do { bookingsCount = (try await FirestoreService.shared.getBookingsForGuide(guideEmail: email)).count } catch { }
     }
 }

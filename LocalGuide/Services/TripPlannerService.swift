@@ -15,6 +15,8 @@ final class TripPlannerService {
         budgetPerDay: Double?,
         pace: String?,
         groupSize: Int?,
+        // A catalog of existing in-app listings. The backend will build the plan ONLY from these.
+        catalog: [String: Any],
         languageCode: String
     ) async throws -> (tripPlanId: String, plan: [String: Any]) {
         let fn = FirebaseManager.shared.functions.httpsCallable("generateTripPlan")
@@ -30,6 +32,7 @@ final class TripPlannerService {
             "budgetPerDay": budgetPerDay as Any,
             "pace": pace as Any,
             "groupSize": groupSize as Any,
+            "catalog": catalog,
             "languageCode": languageCode,
         ]
 

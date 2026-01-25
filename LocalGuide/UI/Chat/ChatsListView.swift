@@ -79,11 +79,12 @@ struct ChatsListView: View {
 
     private func load() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let email = appState.session.firebaseUser?.email else { return }
         isLoading = true
         do {
             threads = (mode == .traveler)
                 ? try await FirestoreService.shared.getChatThreadsForUser(userId: uid)
-                : try await FirestoreService.shared.getChatThreadsForGuide(guideId: uid)
+                : try await FirestoreService.shared.getChatThreadsForGuide(email: email)
         } catch {
             threads = []
         }
@@ -96,7 +97,7 @@ struct ChatsListView: View {
         for t in threads {
             switch mode {
             case .traveler:
-                await directory.loadGuideIfNeeded(t.guideId)
+                await directory.loadGuideIfNeeded(t.email)
             case .seller:
                 await directory.loadUserIfNeeded(t.userId)
             }
@@ -106,18 +107,20 @@ struct ChatsListView: View {
     private func title(for thread: ChatThread) -> String {
         switch mode {
         case .traveler:
-            return directory.guide(thread.guideId)?.displayName ?? "Guide"
+            return directory.guide(thread.email)?.displayName ?? "Guide"
         case .seller:
-            return directory.user(thread.userId)?.email ?? "Traveler"
+            let u = directory.user(thread.userId)
+            if let name = u?.fullName, !name.isEmpty { return name }
+            return u?.email ?? "Traveler"
         }
     }
 
     private func avatarURL(for thread: ChatThread) -> String? {
         switch mode {
         case .traveler:
-            return directory.guide(thread.guideId)?.photoURL
+            return directory.guide(thread.email)?.photoURL
         case .seller:
-            return nil
+            return directory.user(thread.userId)?.photoURL
         }
     }
 }

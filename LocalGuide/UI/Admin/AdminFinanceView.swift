@@ -99,7 +99,7 @@ struct AdminFinanceView: View {
             totalBookings = bookings.count
 
             // Group by seller (guideId) and fetch their role.
-            let grouped = Dictionary(grouping: bookings, by: { $0.guideId })
+            let grouped = Dictionary(grouping: bookings, by: { $0.guideEmail })
             var tmpRows: [Row] = []
             var gmvSum: Double = 0
             var commissionSum: Double = 0

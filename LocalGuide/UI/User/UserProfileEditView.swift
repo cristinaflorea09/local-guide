@@ -2,6 +2,7 @@ import SwiftUI
 
 struct UserProfileEditView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
 
     @State private var fullName: String = ""
     @State private var dateOfBirth: Date = Date()
@@ -80,6 +81,7 @@ struct UserProfileEditView: View {
 
     private func save() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        let docId = appState.session.currentUser?.id ?? uid
 
         isSaving = true
         message = nil
@@ -88,7 +90,7 @@ struct UserProfileEditView: View {
             // Store DOB as ISO string (simple + Firestore friendly)
             let dobISO = ISO8601DateFormatter().string(from: dateOfBirth)
 
-            try await FirestoreService.shared.updateUser(uid: uid, fields: [
+            try await FirestoreService.shared.updateUser(uid: docId, fields: [
                 "fullName": fullName.trimmingCharacters(in: .whitespacesAndNewlines),
                 "country": country,
                 "city": city,
@@ -97,6 +99,7 @@ struct UserProfileEditView: View {
 
             await appState.session.refreshCurrentUserIfAvailable()
             message = "Saved ✅"
+            await MainActor.run { dismiss() }
         } catch {
             message = error.localizedDescription
         }

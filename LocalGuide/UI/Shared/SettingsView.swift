@@ -35,11 +35,23 @@ struct SettingsView: View {
                     LegalPDFNavLink(title: "Privacy Policy", type: .privacy)
                     LegalPDFNavLink(title: "Cancellation Policy", type: .cancellation)
                     LegalPDFNavLink(title: "Annex", type: .annex)
-                    LegalPDFNavLink(title: "Data Processing Addendum (DPA)", type: .dpa)
 
-                    // Intermediary contracts: individual (PFA) vs company (SRL)
-                    LegalPDFNavLink(title: "Intermediary Contract (PFA)", type: .intermediaryPFA)
-                    LegalPDFNavLink(title: "Intermediary Contract (SRL)", type: .intermediarySRL)
+                    // Seller-only documents. Travelers should not see these.
+                    if appState.session.currentUser?.role == .guide || appState.session.currentUser?.role == .host {
+                        LegalPDFNavLink(title: "Data Processing Addendum (DPA)", type: .dpa)
+
+                        // Intermediary contracts: show only the relevant one based on businessType.
+                        let bt = (appState.session.currentUser?.businessType ?? "").uppercased()
+                        if bt == "PFA" {
+                            LegalPDFNavLink(title: "Intermediary Contract (PFA)", type: .intermediaryPFA)
+                        } else if bt == "SRL" {
+                            LegalPDFNavLink(title: "Intermediary Contract (SRL)", type: .intermediarySRL)
+                        } else {
+                            // If businessType is missing, show both so sellers can still access.
+                            LegalPDFNavLink(title: "Intermediary Contract (PFA)", type: .intermediaryPFA)
+                            LegalPDFNavLink(title: "Intermediary Contract (SRL)", type: .intermediarySRL)
+                        }
+                    }
                 })
 
                 if appState.session.currentUser?.role == .guide || appState.session.currentUser?.role == .host {

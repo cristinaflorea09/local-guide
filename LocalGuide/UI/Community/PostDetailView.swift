@@ -8,6 +8,7 @@ struct PostDetailView: View {
     @State private var isLoading = false
     @State private var showReport = false
     @State private var reportTarget: (FeedReport.TargetType, String)? = nil
+    @State private var isLiked = false
 
     var body: some View {
         ZStack {
@@ -35,7 +36,7 @@ struct PostDetailView: View {
                                 Button {
                                     Task { await toggleLike() }
                                 } label: {
-                                    Label("Like", systemImage: "heart")
+                                    Label(isLiked ? "Liked" : "Like", systemImage: isLiked ? "heart.fill" : "heart")
                                 }
                                 .buttonStyle(.plain)
                                 .foregroundStyle(Lx.gold)
@@ -124,13 +125,26 @@ struct PostDetailView: View {
         do {
             comments = try await FirestoreService.shared.listComments(postId: post.id)
         } catch { }
+        if let uid = appState.session.firebaseUser?.uid {
+            isLiked = post.likedBy?.contains(uid) == true
+        }
     }
 
     private func toggleLike() async {
+        guard let uid = appState.session.firebaseUser?.uid else { return }
+        if isLiked { return } // one like only
         do {
-            try await FirestoreService.shared.likePost(postId: post.id, delta: 1)
-            post.likeCount += 1
-        } catch { }
+            let didLike = try await FirestoreService.shared.likePost(postId: post.id, userId: uid)
+            if didLike {
+                post.likeCount += 1
+                if post.likedBy == nil { post.likedBy = [] }
+                post.likedBy?.append(uid)
+                isLiked = true
+                Haptics.success()
+            }
+        } catch {
+            // no-op
+        }
     }
 
     private func postComment() async {

@@ -1,5 +1,6 @@
 import Foundation
 import FirebaseFirestore
+import FirebaseAuth
 
 final class FirestoreService {
     static let shared = FirestoreService()
@@ -21,22 +22,64 @@ final class FirestoreService {
     private var postReportsCol: CollectionReference { db.collection("postReports") }
     private var tripPlansCol: CollectionReference { db.collection("tripPlans") }
 
+    // Firestore doc ids are migrated to use lowercased email where possible.
+    private func emailKey(_ email: String?) -> String? {
+        guard let e = email?.trimmingCharacters(in: .whitespacesAndNewlines), !e.isEmpty else { return nil }
+        return e.lowercased()
+    }
+
     // MARK: Users
     func createUser(_ user: AppUser) async throws {
-        try usersCol.document(user.id).setData(from: user, merge: true)
+        var u = user
+        // Prefer email-keyed docs.
+        let docId = emailKey(u.email) ?? u.id
+        if u.id != docId { u.id = docId }
+        try usersCol.document(docId).setData(from: u, merge: true)
+        // Keep the auth uid for lookups/back-compat.
+        if let uid = Auth.auth().currentUser?.uid {
+            try? await usersCol.document(docId).setData(["uid": uid], merge: true)
+        }
+    }
+
+    /// Load user by doc id (email-key) or fallback lookup by auth uid.
+    func getUserByAuth(uid: String, email: String?) async throws -> AppUser {
+        if let key = emailKey(email) {
+            let snap = try await usersCol.document(key).getDocument()
+            if snap.exists, let decoded = try snap.data(as: AppUser?.self) {
+                var fixed = decoded
+                if fixed.id.isEmpty { fixed.id = key }
+                return fixed
+            }
+        }
+        // Fallback: old uid doc id
+        do {
+            return try await getUser(docId: uid)
+        } catch {
+            // Fallback: query by stored uid field
+            let q = try await usersCol.whereField("uid", isEqualTo: uid).limit(to: 1).getDocuments()
+            if let doc = q.documents.first {
+                return try doc.data(as: AppUser.self)
+            }
+            throw error
+        }
     }
 
     func getUser(uid: String) async throws -> AppUser {
-        let snap = try await usersCol.document(uid).getDocument()
+        // Backwards compatible API (treat param as auth uid)
+        return try await getUserByAuth(uid: uid, email: nil)
+    }
+
+    func getUser(docId: String) async throws -> AppUser {
+        let snap = try await usersCol.document(docId).getDocument()
         guard let decoded = try snap.data(as: AppUser?.self) else {
             throw NSError(domain: "AppUser", code: 404, userInfo: [NSLocalizedDescriptionKey: "User not found"])
         }
         // Older docs may not store the id field. Always fall back to the document id.
         if decoded.id.isEmpty {
             var fixed = decoded
-            fixed.id = uid
+            fixed.id = docId
             // Best-effort patch so next loads are correct.
-            try? await usersCol.document(uid).setData(["id": uid], merge: true)
+            try? await usersCol.document(docId).setData(["id": docId], merge: true)
             return fixed
         }
         return decoded
@@ -45,14 +88,32 @@ final class FirestoreService {
     /// Ensures an AppUser document exists. If missing, creates a minimal one.
     /// Useful for accounts created in Firebase Auth without a corresponding Firestore user document.
     func getOrCreateUser(uid: String, email: String?, roleHint: UserRole = .traveler) async throws -> AppUser {
-        let ref = usersCol.document(uid)
-        let snap = try await ref.getDocument()
-        if snap.exists {
-            return try await getUser(uid: uid)
+        let key = emailKey(email) ?? uid
+        let emailRef = usersCol.document(key)
+        let emailSnap = try await emailRef.getDocument()
+        if emailSnap.exists {
+            var u = try emailSnap.data(as: AppUser.self)
+            if u.id.isEmpty { u.id = key }
+            // Ensure uid is present for fallback lookups.
+            try? await emailRef.setData(["uid": uid], merge: true)
+            return u
+        }
+
+        // If an old uid-keyed doc exists, migrate it to email-keyed doc.
+        let uidRef = usersCol.document(uid)
+        let uidSnap = try await uidRef.getDocument()
+        if uidSnap.exists, let old = try uidSnap.data(as: AppUser?.self) {
+            var migrated = old
+            migrated.id = key
+            migrated.email = email ?? migrated.email
+            try emailRef.setData(from: migrated, merge: true)
+            try? await emailRef.setData(["uid": uid], merge: true)
+            try? await uidRef.delete()
+            return migrated
         }
 
         let newUser = AppUser(
-            id: uid,
+            id: key,
             email: email,
             fullName: "",
             preferredLanguageCode: "en",
@@ -64,11 +125,21 @@ final class FirestoreService {
             disabled: false,
             createdAt: Date()
         )
-        try ref.setData(from: newUser, merge: true)
+        try emailRef.setData(from: newUser, merge: true)
+        try? await emailRef.setData(["uid": uid], merge: true)
         return newUser
     }
 
     func updateUser(uid: String, fields: [String: Any]) async throws {
+        // `uid` parameter is treated as doc id if it contains '@' else auth uid.
+        if uid.contains("@") {
+            try await usersCol.document(uid.lowercased()).updateData(fields)
+            return
+        }
+        if let email = Auth.auth().currentUser?.email, let key = emailKey(email) {
+            try await usersCol.document(key).updateData(fields)
+            return
+        }
         try await usersCol.document(uid).updateData(fields)
     }
 
@@ -85,9 +156,9 @@ final class FirestoreService {
         ], merge: true)
     }
 
-
-    func getGuideProfile(guideId: String) async throws -> GuideProfile {
-        let snap = try await guidesCol.document(guideId).getDocument()
+    
+    func getGuideProfile(guideEmail: String) async throws -> GuideProfile {
+        let snap = try await guidesCol.document(guideEmail).getDocument()
         guard let profile = try snap.data(as: GuideProfile?.self) else {
             throw NSError(domain: "GuideProfile", code: 404, userInfo: [NSLocalizedDescriptionKey: "Guide profile not found"])
         }
@@ -109,8 +180,8 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         ], merge: true)
     }
 
-    func getHostProfile(hostId: String) async throws -> HostProfile {
-        let snap = try await hostsCol.document(hostId).getDocument()
+    func getHostProfile(hostEmail: String) async throws -> HostProfile {
+        let snap = try await hostsCol.document(hostEmail).getDocument()
         guard let profile = try snap.data(as: HostProfile?.self) else {
             throw NSError(domain: "HostProfile", code: 404, userInfo: [NSLocalizedDescriptionKey: "Host profile not found"])
         }
@@ -162,8 +233,8 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         return try snap.documents.compactMap { try $0.data(as: Tour.self) }
     }
 
-    func getToursForGuide(guideId: String) async throws -> [Tour] {
-        let snap = try await toursCol.whereField("guideId", isEqualTo: guideId)
+    func getToursForGuide(guideEmail: String) async throws -> [Tour] {
+        let snap = try await toursCol.whereField("guideEmail", isEqualTo: guideEmail)
             .order(by: "createdAt", descending: true)
             .getDocuments()
         return try snap.documents.compactMap { try $0.data(as: Tour.self) }
@@ -212,8 +283,8 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         return try snap.documents.compactMap { try $0.data(as: Experience.self) }
     }
 
-    func getExperiencesForHost(hostId: String) async throws -> [Experience] {
-        let snap = try await experiencesCol.whereField("hostId", isEqualTo: hostId)
+    func getExperiencesForHost(hostEmail: String) async throws -> [Experience] {
+        let snap = try await experiencesCol.whereField("hostEmail", isEqualTo: hostEmail)
             .order(by: "createdAt", descending: true)
             .getDocuments()
         return try snap.documents.compactMap { try $0.data(as: Experience.self) }
@@ -269,16 +340,23 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         try await tripPlansCol.document(tripPlanId).updateData(fields)
     }
 
-    func getBookingsForGuide(guideId: String) async throws -> [Booking] {
-        let snap = try await bookingsCol.whereField("guideId", isEqualTo: guideId)
+    func getBookingsForGuide(guideEmail: String) async throws -> [Booking] {
+        // Prefer unified `providerId` field; fall back to legacy `guideId`.
+        async let a = getBookingsForProvider(providerEmail: guideEmail, listingType: "tour")
+        let legacy = try await bookingsCol.whereField("guideEmail", isEqualTo: guideEmail)
             .order(by: "createdAt", descending: true)
             .getDocuments()
-        return try snap.documents.compactMap { try $0.data(as: Booking.self) }
+        var out = try await a
+        out.append(contentsOf: try legacy.documents.compactMap { try $0.data(as: Booking.self) })
+        // De-dup by id
+        var seen = Set<String>()
+        out = out.filter { seen.insert($0.id).inserted }
+        return out.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
     }
 
     /// Unified marketplace: bookings for a provider (guide/host). Optionally filter by listingType.
-    func getBookingsForProvider(providerId: String, listingType: String? = nil) async throws -> [Booking] {
-        var q: Query = bookingsCol.whereField("providerId", isEqualTo: providerId)
+    func getBookingsForProvider(providerEmail: String, listingType: String? = nil) async throws -> [Booking] {
+        var q: Query = bookingsCol.whereField("providerEmail", isEqualTo: providerEmail)
         if let listingType {
             q = q.whereField("listingType", isEqualTo: listingType)
         }
@@ -287,15 +365,24 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
     }
 
     /// Convenience: host bookings (experiences).
-    func getBookingsForHost(hostId: String) async throws -> [Booking] {
-        try await getBookingsForProvider(providerId: hostId, listingType: "experience")
+    func getBookingsForHost(hostEmail: String) async throws -> [Booking] {
+        // Prefer unified `providerId` field; fall back to legacy `hostId`.
+        async let a = getBookingsForProvider(providerEmail: hostEmail, listingType: "experience")
+        let legacy = try await bookingsCol.whereField("guideEmail", isEqualTo: hostEmail)
+            .order(by: "createdAt", descending: true)
+            .getDocuments()
+        var out = try await a
+        out.append(contentsOf: try legacy.documents.compactMap { try $0.data(as: Booking.self) })
+        var seen = Set<String>()
+        out = out.filter { seen.insert($0.id).inserted }
+        return out.sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
     }
 
     /// Seller earnings: list bookings for a provider in a month range (client-side summaries / PDFs).
-    func getBookingsForProvider(providerId: String, from: Date, to: Date, listingType: String? = nil) async throws -> [Booking] {
+    func getBookingsForProvider(providerEmail: String, from: Date, to: Date, listingType: String? = nil) async throws -> [Booking] {
         // Firestore can't filter on computed dates; we use createdAt for range.
         // For accurate period-by-service-date reporting, store startAt timestamp and filter on that.
-        var q: Query = bookingsCol.whereField("providerId", isEqualTo: providerId)
+        var q: Query = bookingsCol.whereField("providerEmail", isEqualTo: providerEmail)
         if let listingType { q = q.whereField("listingType", isEqualTo: listingType) }
         let snap = try await q
             .whereField("createdAt", isGreaterThanOrEqualTo: from)
@@ -331,9 +418,9 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
     }
 
     /// Reviews for a provider (guide or host).
-    func getReviewsForProvider(providerId: String, limit: Int = 50) async throws -> [Review] {
+    func getReviewsForProvider(providerEmail: String, limit: Int = 50) async throws -> [Review] {
         let snap = try await reviewsCol
-            .whereField("providerId", isEqualTo: providerId)
+            .whereField("providerEmail", isEqualTo: providerEmail)
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
             .getDocuments()
@@ -353,8 +440,8 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         try await getReviewsForListing(listingType: "tour", listingId: tourId, limit: limit)
     }
 
-    func getReviewsForGuide(guideId: String, limit: Int = 50) async throws -> [Review] {
-        try await getReviewsForProvider(providerId: guideId, limit: limit)
+    func getReviewsForGuide(guideEmail: String, limit: Int = 50) async throws -> [Review] {
+        try await getReviewsForProvider(providerEmail: guideEmail, limit: limit)
     }
 
     // MARK: Availability
@@ -366,13 +453,24 @@ func deleteAvailability(slotId: String) async throws {
     try await availabilityCol.document(slotId).delete()
 }
 
-func getAvailabilityForGuide(guideId: String, limit: Int = 200) async throws -> [AvailabilitySlot] {
-    let snap = try await availabilityCol.whereField("guideId", isEqualTo: guideId)
+func getAvailabilityForGuide(guideEmail: String, limit: Int = 200) async throws -> [AvailabilitySlot] {
+    let snap = try await availabilityCol.whereField("email", isEqualTo: guideEmail)
         .order(by: "start", descending: false)
         .limit(to: limit)
         .getDocuments()
     return try snap.documents.compactMap { try $0.data(as: AvailabilitySlot.self) }
 }
+
+    /// Availability slots for a specific listing (tour or experience).
+    func getAvailabilityForListing(listingType: String, listingId: String, limit: Int = 200) async throws -> [AvailabilitySlot] {
+        let snap = try await availabilityCol
+            .whereField("listingType", isEqualTo: listingType)
+            .whereField("listingId", isEqualTo: listingId)
+            .order(by: "start", descending: false)
+            .limit(to: limit)
+            .getDocuments()
+        return try snap.documents.compactMap { try $0.data(as: AvailabilitySlot.self) }
+    }
 
     /// Next available slot for a listing (tour or experience). Used for "Soonest available" sorting.
     /// Requires slots to be written with listingType + listingId fields (Stage 6+).
@@ -410,9 +508,9 @@ func getAvailabilityForGuide(guideId: String, limit: Int = 200) async throws -> 
     }
 
 // MARK: Chat Threads
-func getOrCreateThread(userId: String, guideId: String, tourId: String? = nil) async throws -> ChatThread {
+func getOrCreateThread(userId: String, email: String, tourId: String? = nil) async throws -> ChatThread {
     // Deterministic thread id for (user, guide, tour)
-    let tId = [userId, guideId, tourId ?? "none"].joined(separator: "_")
+    let tId = [userId, email, tourId ?? "none"].joined(separator: "_")
     let ref = threadsCol.document(tId)
     let snap = try await ref.getDocument()
     if let existing = try snap.data(as: ChatThread?.self) {
@@ -421,7 +519,7 @@ func getOrCreateThread(userId: String, guideId: String, tourId: String? = nil) a
     let thread = ChatThread(
         id: tId,
         userId: userId,
-        guideId: guideId,
+        email: email,
         tourId: tourId,
         lastMessage: nil,
         lastSenderId: nil,
@@ -440,8 +538,8 @@ func getChatThreadsForUser(userId: String, limit: Int = 100) async throws -> [Ch
     return try snap.documents.compactMap { try $0.data(as: ChatThread.self) }
 }
 
-func getChatThreadsForGuide(guideId: String, limit: Int = 100) async throws -> [ChatThread] {
-    let snap = try await threadsCol.whereField("guideId", isEqualTo: guideId)
+func getChatThreadsForGuide(email: String, limit: Int = 100) async throws -> [ChatThread] {
+    let snap = try await threadsCol.whereField("email", isEqualTo: email)
         .order(by: "updatedAt", descending: true)
         .limit(to: limit)
         .getDocuments()
@@ -458,7 +556,7 @@ func listenToMessages(threadId: String, onUpdate: @escaping ([ChatMessage]) -> V
         }
 }
 
-func sendMessage(threadId: String, senderId: String, text: String, userId: String, guideId: String, tourId: String?) async throws {
+func sendMessage(threadId: String, senderId: String, text: String, userId: String, email: String, tourId: String?) async throws {
     let msg = ChatMessage(
         id: UUID().uuidString,
         threadId: threadId,
@@ -472,7 +570,7 @@ func sendMessage(threadId: String, senderId: String, text: String, userId: Strin
     try await threadRef.setData([
         "id": threadId,
         "userId": userId,
-        "guideId": guideId,
+        "email": email,
         "tourId": tourId as Any,
         "lastMessage": text,
         "lastSenderId": senderId,
@@ -496,6 +594,40 @@ func sendMessage(threadId: String, senderId: String, text: String, userId: Strin
         return try snap.documents.compactMap { try $0.data(as: FeedPost.self) }
     }
 
+    /// Like a post once. Returns true if a new like was recorded, false if the user had already liked.
+    func likePost(postId: String, userId: String) async throws -> Bool {
+        let ref = postsCol.document(postId)
+        // Firestore's runTransaction closure is non-throwing; handle errors inside and return a concrete Bool
+        let result: Bool? = try await db.runTransaction { tx, errorPointer in
+            do {
+                let snap = try tx.getDocument(ref)
+                var likedBy = (snap.get("likedBy") as? [String]) ?? []
+                if likedBy.contains(userId) {
+                    // Already liked; no write needed
+                    return false
+                }
+                likedBy.append(userId)
+                tx.updateData([
+                    "likedBy": likedBy,
+                    "likeCount": FieldValue.increment(Int64(1))
+                ], forDocument: ref)
+                return true
+            } catch {
+                // Set the error pointer so Firestore knows the transaction failed
+                if let errorPointer = errorPointer {
+                    errorPointer.pointee = error as NSError
+                }
+                return nil
+            }
+        } as? Bool
+        // If result is nil, the transaction failed and runTransaction threw; propagate a descriptive error
+        guard let unwrapped = result else {
+            throw NSError(domain: "FirestoreService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to complete like transaction"]) 
+        }
+        return unwrapped
+    }
+
+    /// Backwards compatible API (still used in older screens). Positive delta increments likeCount.
     func likePost(postId: String, delta: Int) async throws {
         try await postsCol.document(postId).updateData(["likeCount": FieldValue.increment(Int64(delta))])
     }

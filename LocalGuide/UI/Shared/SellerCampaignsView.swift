@@ -18,94 +18,93 @@ struct SellerCampaignsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text("Campaigns")
-                            .font(.largeTitle.bold())
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Campaigns")
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(.white)
+
+                    LuxuryCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Create a discount campaign")
+                                .font(.title3.bold())
+                                .foregroundStyle(.white)
+                            Text("Boost conversions by offering time-based promotions, last-minute discounts, or group deals.")
+                                .foregroundStyle(.white.opacity(0.75))
+                            NavigationLink {
+                                CampaignListingPickerView(
+                                    isGuide: isGuide,
+                                    tours: tours,
+                                    experiences: experiences
+                                )
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Text("Create campaign")
+                                    Image(systemName: "plus")
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(LuxuryPrimaryButtonStyle())
+                        }
+                    }
+
+                    if isLoading {
+                        ProgressView().tint(Lx.gold)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Your listings")
+                            .font(.headline)
                             .foregroundStyle(.white)
 
-                        LuxuryCard {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Create a discount campaign")
-                                    .font(.title3.bold())
-                                    .foregroundStyle(.white)
-                                Text("Boost conversions by offering time-based promotions, last-minute discounts, or group deals.")
-                                    .foregroundStyle(.white.opacity(0.75))
-                                NavigationLink {
-                                    CampaignListingPickerView(
-                                        isGuide: isGuide,
-                                        tours: tours,
-                                        experiences: experiences
-                                    )
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Text("Create campaign")
-                                        Image(systemName: "plus")
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(LuxuryPrimaryButtonStyle())
+                        if listingsEmpty {
+                            LuxuryCard {
+                                Text(isGuide ? "No tours yet." : "No experiences yet.")
+                                    .foregroundStyle(.white.opacity(0.8))
                             }
-                        }
-
-                        if isLoading {
-                            ProgressView().tint(Lx.gold)
-                        }
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Your listings")
-                                .font(.headline)
-                                .foregroundStyle(.white)
-
-                            if listingsEmpty {
-                                LuxuryCard {
-                                    Text(isGuide ? "No tours yet." : "No experiences yet.")
-                                        .foregroundStyle(.white.opacity(0.8))
-                                }
-                            } else {
-                                ForEach(listingRows) { row in
-                                    NavigationLink {
-                                        CampaignEditorView(
-                                            title: row.title,
-                                            smartPricing: row.smartPricing,
-                                            onSave: { updated in
-                                                Task {
-                                                    await save(row: row, smartPricing: updated)
-                                                }
-                                            }
-                                        )
-                                    } label: {
-                                        LuxuryCard {
-                                            HStack {
-                                                VStack(alignment: .leading, spacing: 4) {
-                                                    Text(row.title)
-                                                        .font(.headline)
-                                                        .foregroundStyle(.white)
-                                                    Text(row.summary)
-                                                        .font(.caption)
-                                                        .foregroundStyle(.white.opacity(0.75))
-                                                }
-                                                Spacer()
-                                                Image(systemName: "chevron.right")
-                                                    .foregroundStyle(.white.opacity(0.6))
+                        } else {
+                            ForEach(listingRows) { row in
+                                NavigationLink {
+                                    CampaignEditorView(
+                                        title: row.title,
+                                        smartPricing: row.smartPricing,
+                                        onSave: { updated in
+                                            Task {
+                                                await save(row: row, smartPricing: updated)
                                             }
                                         }
+                                    )
+                                } label: {
+                                    LuxuryCard {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(row.title)
+                                                    .font(.headline)
+                                                    .foregroundStyle(.white)
+                                                Text(row.summary)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.white.opacity(0.75))
+                                            }
+                                            Spacer()
+                                            Image(systemName: "chevron.right")
+                                                .foregroundStyle(.white.opacity(0.6))
+                                        }
                                     }
-                                    .buttonStyle(.plain)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
-                    .padding(18)
                 }
+                .padding(18)
             }
-            .task { await load() }
-            .refreshable { await load() }
         }
+        .navigationTitle("Campaigns")
+        .task { await load() }
+        .refreshable { await load() }
     }
 
     private var listingsEmpty: Bool {
@@ -133,14 +132,14 @@ struct SellerCampaignsView: View {
     }
 
     private func load() async {
-        guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let email = appState.session.firebaseUser?.email else { return }
         isLoading = true
         defer { isLoading = false }
         do {
             if isGuide {
-                tours = try await FirestoreService.shared.getToursForGuide(guideId: uid)
+                tours = try await FirestoreService.shared.getToursForGuide(guideEmail: email)
             } else {
-                experiences = try await FirestoreService.shared.getExperiencesForHost(hostId: uid)
+                experiences = try await FirestoreService.shared.getExperiencesForHost(hostEmail: email)
             }
         } catch {
             tours = []
@@ -213,6 +212,8 @@ private struct CampaignEditorView: View {
     let smartPricing: SmartPricing?
     var onSave: (SmartPricing) -> Void
 
+    @Environment(\.dismiss) private var dismiss
+
     @State private var promoPercent: Int = 0
     @State private var promoStart: Date = Date()
     @State private var promoEnd: Date = Date().addingTimeInterval(7 * 24 * 3600)
@@ -248,6 +249,7 @@ private struct CampaignEditorView: View {
 
                     Button("Save") {
                         onSave(buildSmartPricing())
+                        dismiss() // return to campaigns view
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
 
@@ -294,3 +296,4 @@ private struct CampaignEditorView: View {
         return updated
     }
 }
+

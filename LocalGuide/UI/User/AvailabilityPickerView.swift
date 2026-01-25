@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AvailabilityPickerView: View {
-    let guideId: String
+    let guideEmail: String
     let selectedDate: Date
     @Binding var selectedSlot: AvailabilitySlot?
 
@@ -63,7 +63,7 @@ struct AvailabilityPickerView: View {
         let startOfDay = cal.startOfDay(for: selectedDate)
         let endOfDay = cal.date(byAdding: .day, value: 1, to: startOfDay) ?? selectedDate
         do {
-            let all = try await FirestoreService.shared.getAvailabilityForGuide(guideId: guideId)
+            let all = try await FirestoreService.shared.getAvailabilityForGuide(guideEmail: guideEmail)
             // Filter to selected day + open slots only
             slots = all.filter { s in
                 s.status == .open && s.start >= startOfDay && s.start < endOfDay

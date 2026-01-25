@@ -295,11 +295,11 @@ exports.reserveSlotAndCreateBooking = onCall(
       // New unified fields (preferred)
       listingType,
       listingId,
-      providerId,
+      providerEmail,
 
       // Backward compatible fields (older app builds)
       tourId,
-      guideId,
+      guideEmail,
       slotId,
       startISO,
       endISO,
@@ -311,7 +311,7 @@ exports.reserveSlotAndCreateBooking = onCall(
 
     const lt = (listingType || "tour").toLowerCase();
     const lid = listingId || tourId;
-    const pid = providerId || guideId;
+    const pid = providerEmail || guideEmail;
 
     if (!lid || !pid || !slotId || !startISO || !endISO) {
       throw new HttpsError("invalid-argument", "Missing required fields");
@@ -326,7 +326,7 @@ exports.reserveSlotAndCreateBooking = onCall(
       if (!slotSnap.exists) throw new HttpsError("not-found", "Slot not found");
       const slot = slotSnap.data() || {};
 
-      if (slot.guideId !== pid) throw new HttpsError("permission-denied", "Provider mismatch");
+      if (slot.email !== pid) throw new HttpsError("permission-denied", "Provider mismatch");
       if (slot.isReserved === true || slot.status === "reserved") {
         throw new HttpsError("failed-precondition", "Slot already reserved");
       }
@@ -341,15 +341,15 @@ exports.reserveSlotAndCreateBooking = onCall(
 
       // For backward compatibility, keep tourId/guideId fields populated.
       const compatTourId = tourId || lid;
-      const compatGuideId = guideId || pid;
+      const compatGuideEmail = guideEmail || pid;
 
       tx.set(bookingRef, {
         id: bookingRef.id,
         tourId: compatTourId,
-        guideId: compatGuideId,
+        guideEmail: compatGuideEmail,
         listingType: lt,
         listingId: lid,
-        providerId: pid,
+        providerEmail: pid,
         userId: uid,
         slotId,
         startISO,
@@ -399,7 +399,7 @@ exports.createPaymentIntent = onCall(
     }
 
     // Ensure seller is Stripe-connected
-    const sellerId = booking.providerId || booking.guideId;
+    const sellerId = booking.providermail || booking.guideEmail;
     const sellerSnap = await db.collection("users").doc(sellerId).get();
     if (!sellerSnap.exists) throw new HttpsError("not-found", "Seller not found");
     const seller = sellerSnap.data() || {};
@@ -492,7 +492,7 @@ exports.requestPayoutAfterCompletion = onCall(
     if (!bookingSnap.exists) throw new HttpsError("not-found", "Booking not found");
     const booking = bookingSnap.data() || {};
 
-    const sellerId = booking.providerId || booking.guideId;
+    const sellerId = booking.providerEmail || booking.guideEmail;
     if (sellerId !== uid) throw new HttpsError("permission-denied", "Not your booking");
 
     if (booking.status !== "confirmed") {
@@ -600,7 +600,7 @@ exports.cancelBooking = onCall(
     const booking = bookingSnap.data() || {};
 
     const isBuyer = booking.userId === uid;
-    const isSeller = (booking.providerId || booking.guideId) === uid;
+    const isSeller = (booking.providerEmail || booking.guideEmail) === uid;
     const isAdmin = await isAdminUid(uid);
     if (!isBuyer && !isSeller && !isAdmin) throw new HttpsError("permission-denied", "Not allowed");
 
@@ -756,8 +756,21 @@ exports.addReview = onCall(
 
       const listingType = (booking.listingType || "tour").toLowerCase();
       const listingId = booking.listingId || booking.tourId;
-      const providerId = booking.providerId || booking.guideId;
+      const providerEmail = booking.providerEmail || booking.guideEmail;
       const providerRole = listingType === "experience" ? "host" : "guide";
+
+      // Firestore transactions require all reads before any writes.
+      const listingRef = listingType === "experience"
+        ? db.collection("experiences").doc(listingId)
+        : db.collection("tours").doc(listingId);
+      const providerRef = providerRole === "host"
+        ? db.collection("hosts").doc(providerEmail)
+        : db.collection("guides").doc(providerEmail);
+
+      const [listingSnap, providerSnap] = await Promise.all([
+        tx.get(listingRef),
+        tx.get(providerRef),
+      ]);
 
       const reviewId = db.collection("_tmp").doc().id;
       const reviewRef = reviewsCol.doc(reviewId);
@@ -767,7 +780,7 @@ exports.addReview = onCall(
         userId: uid,
         listingType,
         listingId,
-        providerId,
+        providerEmail,
         providerRole,
         rating: stars,
         comment: (comment || "").toString().slice(0, 2000),
@@ -776,10 +789,6 @@ exports.addReview = onCall(
       });
 
       // Update listing aggregates
-      const listingRef = listingType === "experience"
-        ? db.collection("experiences").doc(listingId)
-        : db.collection("tours").doc(listingId);
-      const listingSnap = await tx.get(listingRef);
       if (listingSnap.exists) {
         const d = listingSnap.data() || {};
         const { nextAvg, nextCount } = applyAvg(d.ratingAvg, d.ratingCount, stars);
@@ -812,10 +821,6 @@ exports.addReview = onCall(
       }
 
       // Update provider aggregates
-      const providerRef = providerRole === "host"
-        ? db.collection("hosts").doc(providerId)
-        : db.collection("guides").doc(providerId);
-      const providerSnap = await tx.get(providerRef);
       if (providerSnap.exists) {
         const d = providerSnap.data() || {};
         const { nextAvg, nextCount } = applyAvg(d.ratingAvg, d.ratingCount, stars);
@@ -1107,287 +1112,435 @@ exports.stripeWebhook = onRequest(
 ======================= */
 
 const normalizeResponsesInput = (input) => {
-  if (typeof input === 'string') return input;
-  if (Array.isArray(input)) {
-    return input.map((m) => {
-      if (!m || !Array.isArray(m.content)) return m;
-      const content = m.content.map((p) => {
-        if (!p || typeof p !== 'object') return p;
-        // Old/incorrect type -> correct for Responses API
-        if (p.type === 'text') return { ...p, type: 'input_text' };
-        return p;
+    if (typeof input === 'string') return input;
+    if (Array.isArray(input)) {
+      return input.map((m) => {
+        if (!m || !Array.isArray(m.content)) return m;
+        const content = m.content.map((p) => {
+          if (!p || typeof p !== 'object') return p;
+          // Old/incorrect type -> correct for Responses API
+          if (p.type === 'text') return { ...p, type: 'input_text' };
+          return p;
+        });
+        return { ...m, content };
       });
-      return { ...m, content };
-    });
-  }
-  return input;
-};
-
-async function openAIResponsesJSON({ model, input, schema }) {
-  const apiKey = OPENAI_API_KEY.value();
-  if (!apiKey) throw new Error('Missing secret OPENAI_API_KEY');
-
-  const body = {
-    model,
-    input: normalizeResponsesInput(input),
-    // Responses API: response_format moved to text.format
-    text: {
-      format: {
-        type: 'json_schema',
-        name: 'trip_plan',
-        schema,
-        strict: true,
-      },
-    },
+    }
+    return input;
   };
 
-  const resp = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  async function openAIResponsesJSON({ model, input, schema }) {
+    const apiKey = OPENAI_API_KEY.value();
+    if (!apiKey) throw new Error('Missing secret OPENAI_API_KEY');
 
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`OpenAI error ${resp.status}: ${t}`);
+    const body = {
+      model,
+      input: normalizeResponsesInput(input),
+      // Responses API: response_format moved to text.format
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'trip_plan',
+          schema,
+          strict: true,
+        },
+      },
+    };
+
+    const resp = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(`OpenAI error ${resp.status}: ${t}`);
+    }
+
+    const json = await resp.json();
+
+    // Extract JSON from Responses API output (handles several shapes)
+    const out = (() => {
+      const outputs = Array.isArray(json?.output) ? json.output : [];
+      for (const o of outputs) {
+        const content = Array.isArray(o?.content) ? o.content : [];
+        // 1) Native structured JSON part
+        const oj = content.find((c) => c?.type === 'output_json' && c?.json);
+        if (oj?.json) return oj.json;
+
+        // 2) Some SDKs place parsed/json on the first content item
+        const first = content[0];
+        if (first?.json) return first.json;
+        if (first?.parsed) return first.parsed;
+
+        // 3) Text part containing JSON (common)
+        const ot = content.find((c) => c?.type === 'output_text' && typeof c?.text === 'string');
+        if (ot?.text) {
+          try {
+            return JSON.parse(ot.text);
+          } catch {
+            // ignore
+          }
+        }
+
+        // 4) Some responses use summary_text for short JSON
+        const st = content.find((c) => c?.type === 'summary_text' && typeof c?.text === 'string');
+        if (st?.text) {
+          try {
+            return JSON.parse(st.text);
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      // 5) Top-level convenience field
+      const txt = json?.output_text;
+      if (typeof txt === 'string' && txt.trim()) {
+        try {
+          return JSON.parse(txt);
+        } catch {
+          // ignore
+        }
+      }
+
+      return null;
+    })();
+
+    if (out) return out;
+
+    throw new Error('OpenAI response missing JSON output');
+
   }
 
-  const json = await resp.json();
-
-  // Extract JSON from Responses API output (handles several shapes)
-  const out = (() => {
-    const outputs = Array.isArray(json?.output) ? json.output : [];
-    for (const o of outputs) {
-      const content = Array.isArray(o?.content) ? o.content : [];
-      // 1) Native structured JSON part
-      const oj = content.find((c) => c?.type === 'output_json' && c?.json);
-      if (oj?.json) return oj.json;
-
-      // 2) Some SDKs place parsed/json on the first content item
-      const first = content[0];
-      if (first?.json) return first.json;
-      if (first?.parsed) return first.parsed;
-
-      // 3) Text part containing JSON (common)
-      const ot = content.find((c) => c?.type === 'output_text' && typeof c?.text === 'string');
-      if (ot?.text) {
-        try {
-          return JSON.parse(ot.text);
-        } catch {
-          // ignore
-        }
+  exports.generateTripPlan = onCall(
+    { region: REGION, secrets: [OPENAI_API_KEY] },
+    async (request) => {
+      if (!request.auth?.uid) {
+        throw new HttpsError("unauthenticated", "Login required");
       }
 
-      // 4) Some responses use summary_text for short JSON
-      const st = content.find((c) => c?.type === 'summary_text' && typeof c?.text === 'string');
-      if (st?.text) {
-        try {
-          return JSON.parse(st.text);
-        } catch {
-          // ignore
-        }
-      }
-    }
+      const uid = request.auth.uid;
+      const data = request.data || {};
+      const {
+        country,
+        city,
+        startDateISO,
+        endDateISO,
+        interests,
+        budgetPerDay,
+        pace,
+        groupSize,
+        languageCode,
+        notes,
+        // Optional catalog of in-app listings so the itinerary uses ONLY these.
+        catalog,
+      } = data;
 
-    // 5) Top-level convenience field
-    const txt = json?.output_text;
-    if (typeof txt === 'string' && txt.trim()) {
+      if (!city || !country || !startDateISO || !endDateISO) {
+        throw new HttpsError("invalid-argument", "Missing country/city/startDateISO/endDateISO");
+      }
+
+      const db = admin.firestore();
+
+      // Minimal schema the app can render safely.
+      const schema = {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          summary: { type: "string" },
+          // Echo back which listings the planner used, so the client can render them reliably.
+          used: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              tours: { type: "array", items: { type: "string" } },
+              experiences: { type: "array", items: { type: "string" } },
+            },
+            required: ["tours", "experiences"],
+          },
+          days: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                dateISO: { type: "string" },
+                theme: { type: "string" },
+                items: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      time: { type: "string" },
+                      title: { type: "string" },
+                      description: { type: "string" },
+                      neighborhood: { type: "string" },
+                      estimatedCost: { type: "number" },
+                      bookingHint: { type: "string" },
+                      // When recommending an in-app listing, include an explicit reference.
+                      listingType: { type: "string" },
+                      listingId: { type: "string" },
+                    },
+                    required: ["time", "title", "description", "neighborhood", "estimatedCost", "bookingHint", "listingType", "listingId"],
+                  },
+                },
+              },
+              required: ["dateISO", "theme", "items"],
+            },
+          },
+          budgetNotes: { type: "string" },
+        },
+        required: ["title", "summary", "days", "used", "budgetNotes"],
+      };
+
+      const lang = languageCode === "ro" ? "Romanian" : "English";
+      const user = await db.collection("users").doc(uid).get();
+      const fullName = user.exists ? user.data()?.fullName : "";
+
+      // Build a compact catalog string (limit tokens).
+      const safeCatalog = typeof catalog === "object" && catalog ? catalog : { tours: [], experiences: [] };
+      const toursList = Array.isArray(safeCatalog.tours) ? safeCatalog.tours : [];
+      const expsList = Array.isArray(safeCatalog.experiences) ? safeCatalog.experiences : [];
+
+      // If there are no listings, we cannot build a plan without inventing activities.
+      if (toursList.length === 0 && expsList.length === 0) {
+        throw new HttpsError(
+          "failed-precondition",
+          "No tours or experiences found in the app for this destination. Add listings or choose another city."
+        );
+      }
+
+      const fmtLine = (x, kind) => {
+        if (!x || typeof x !== "object") return "";
+        const id = String(x.id || "").trim();
+        const title = String(x.title || "").trim();
+        const cat = String(x.category || "").trim();
+        const price = x.price != null ? Number(x.price) : null;
+        const dur = x.durationMinutes != null ? Number(x.durationMinutes) : null;
+        const rating = x.ratingAvg != null ? Number(x.ratingAvg) : null;
+        const reviews = x.ratingCount != null ? Number(x.ratingCount) : null;
+        const instant = x.instantBook === true ? "instant" : "request";
+        if (!id || !title) return "";
+        return `- ${kind}:${id} | ${title} | ${cat || ""} | ${price != null ? "€" + Math.round(price) : ""} | ${dur != null ? dur + "m" : ""} | ${rating != null ? rating.toFixed(1) : ""} (${reviews != null ? reviews : 0}) | ${instant}`.trim();
+      };
+
+      const catalogText = [
+        `IN-APP TOURS (use ONLY these):`,
+        ...toursList.slice(0, 50).map((t) => fmtLine(t, "tour")).filter(Boolean),
+        `\nIN-APP EXPERIENCES (use ONLY these):`,
+        ...expsList.slice(0, 50).map((e) => fmtLine(e, "experience")).filter(Boolean),
+      ].join("\n");
+
+      const prompt = `You are a premium travel planner for a local experiences marketplace.
+  Create a day-by-day itinerary for ${fullName || "the traveler"} visiting ${city}, ${country}.
+  Dates: ${startDateISO} to ${endDateISO}.
+  Interests: ${Array.isArray(interests) ? interests.join(", ") : ""}.
+  Pace: ${pace || "balanced"}. Group size: ${groupSize || 1}. Budget per day: ${budgetPerDay || "unspecified"}.
+  Extra notes: ${notes || ""}.
+
+  CRITICAL RULES:
+  1) The itinerary MUST be built ONLY from the in-app listings provided below. Do NOT invent attractions, restaurants, museums, landmarks, or other activities.
+  2) When you place an in-app listing into the itinerary, you MUST include listingType ("tour" or "experience") and listingId (the id after the prefix).
+  3) If there aren't enough suitable listings for a time slot, use a generic "Free time" item (no listingType/listingId) with a short description.
+  4) Your plan should use listings that match interests, budget, group size, and pace.
+  5) Populate the "used" field with arrays of listing IDs you actually used (no prefixes).
+
+  ${catalogText}
+
+  Output must be in ${lang}. Use realistic neighborhoods/areas and include booking hints like: "Book a certified guide in-app" or "Book a host experience in-app".
+  Do not include any URLs.
+  Return ONLY valid JSON that matches the provided schema.`;
+
+      const plan = await openAIResponsesJSON({
+        model: "gpt-4.1-mini",
+        input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+        schema,
+      });
+
+      // Defensive post-processing: ensure used ids are strings and strip prefixes if present.
       try {
-        return JSON.parse(txt);
-      } catch {
+        if (plan && plan.used) {
+          const strip = (arr) => (Array.isArray(arr) ? arr.map((x) => String(x || "").replace(/^tour:|^experience:/, "").trim()).filter(Boolean) : []);
+          plan.used = {
+            tours: strip(plan.used.tours),
+            experiences: strip(plan.used.experiences),
+          };
+        }
+      } catch (e) {
         // ignore
       }
+
+      const ref = db.collection("tripPlans").doc();
+      await ref.set({
+        id: ref.id,
+        uid,
+        country,
+        city,
+        startDateISO,
+        endDateISO,
+        interests: Array.isArray(interests) ? interests : [],
+        budgetPerDay: budgetPerDay ?? null,
+        pace: pace ?? null,
+        groupSize: groupSize ?? null,
+        languageCode: languageCode ?? "en",
+        plan,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { tripPlanId: ref.id, plan };
     }
+  );
 
-    return null;
-  })();
+/* =======================
+   LEGAL DOCS (CALLABLE)
+   Return a signed URL for legal PDFs stored in Cloud Storage.
+   This avoids client-side permission issues while keeping files private.
+======================= */
 
-  if (out) return out;
-
-  throw new Error('OpenAI response missing JSON output');
-
-}
-
-exports.generateTripPlan = onCall(
-  { region: REGION, secrets: [OPENAI_API_KEY] },
+exports.getLegalDocUrl = onCall(
+  { region: REGION },
   async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Login required");
     }
 
+    const { docKey } = request.data || {};
+    if (!docKey) throw new HttpsError("invalid-argument", "Missing docKey");
+
+    // Map docKey -> storage path
+    const allowed = {
+      intermediary_srl: "legal/intermediary_srl.pdf",
+      intermediary_pfa: "legal/intermediary_pfa.pdf",
+      dpa: "legal/dpa.pdf",
+    };
+    const path = allowed[docKey];
+    if (!path) throw new HttpsError("invalid-argument", "Unknown docKey");
+
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(path);
+    const [url] = await file.getSignedUrl({
+      version: "v4",
+      action: "read",
+      expires: Date.now() + 1000 * 60 * 15, // 15 minutes
+    });
+    return { url };
+  }
+);
+
+/* =======================
+   MIGRATION: UID DOC IDs -> EMAIL DOC IDs (CALLABLE)
+   Copies users/guides/hosts docs to new doc IDs based on lowercased email.
+   Updates key references in tours/experiences/bookings/threads/messages.
+   Admin only.
+======================= */
+
+exports.migrateSchemaToEmailKeys = onCall(
+  { region: REGION, memory: "512MiB" },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Login required");
     const uid = request.auth.uid;
-    const data = request.data || {};
-    const {
-      country,
-      city,
-      startDateISO,
-      endDateISO,
-      interests,
-      budgetPerDay,
-      pace,
-      groupSize,
-      languageCode,
-      notes,
-      // Optional catalog of in-app listings so the itinerary uses ONLY these.
-      catalog,
-    } = data;
+    if (!(await isAdminUid(uid))) throw new HttpsError("permission-denied", "Admin only");
 
-    if (!city || !country || !startDateISO || !endDateISO) {
-      throw new HttpsError("invalid-argument", "Missing country/city/startDateISO/endDateISO");
-    }
-
+    const { dryRun = true, deleteOld = true } = request.data || {};
     const db = admin.firestore();
 
-    // Minimal schema the app can render safely.
-    const schema = {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        title: { type: "string" },
-        summary: { type: "string" },
-        // Echo back which listings the planner used, so the client can render them reliably.
-        used: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            tours: { type: "array", items: { type: "string" } },
-            experiences: { type: "array", items: { type: "string" } },
-          },
-          required: ["tours", "experiences"],
-        },
-        days: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              dateISO: { type: "string" },
-              theme: { type: "string" },
-              items: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: {
-                    time: { type: "string" },
-                    title: { type: "string" },
-                    description: { type: "string" },
-                    neighborhood: { type: "string" },
-                    estimatedCost: { type: "number" },
-                    bookingHint: { type: "string" },
-                    // When recommending an in-app listing, include an explicit reference.
-                    listingType: { type: "string" },
-                    listingId: { type: "string" },
-                  },
-                  required: ["time", "title", "description", "neighborhood", "estimatedCost", "bookingHint", "listingType", "listingId"],
-                },
-              },
-            },
-            required: ["dateISO", "theme", "items"],
-          },
-        },
-        budgetNotes: { type: "string" },
-      },
-      required: ["title", "summary", "days", "used", "budgetNotes"],
-    };
+    const maps = []; // { fromId, toEmail }
 
-    const lang = languageCode === "ro" ? "Romanian" : "English";
-    const user = await db.collection("users").doc(uid).get();
-    const fullName = user.exists ? user.data()?.fullName : "";
-
-    // Build a compact catalog string (limit tokens).
-    const safeCatalog = typeof catalog === "object" && catalog ? catalog : { tours: [], experiences: [] };
-    const toursList = Array.isArray(safeCatalog.tours) ? safeCatalog.tours : [];
-    const expsList = Array.isArray(safeCatalog.experiences) ? safeCatalog.experiences : [];
-
-    // If there are no listings, we cannot build a plan without inventing activities.
-    if (toursList.length === 0 && expsList.length === 0) {
-      throw new HttpsError(
-        "failed-precondition",
-        "No tours or experiences found in the app for this destination. Add listings or choose another city."
-      );
-    }
-
-    const fmtLine = (x, kind) => {
-      if (!x || typeof x !== "object") return "";
-      const id = String(x.id || "").trim();
-      const title = String(x.title || "").trim();
-      const cat = String(x.category || "").trim();
-      const price = x.price != null ? Number(x.price) : null;
-      const dur = x.durationMinutes != null ? Number(x.durationMinutes) : null;
-      const rating = x.ratingAvg != null ? Number(x.ratingAvg) : null;
-      const reviews = x.ratingCount != null ? Number(x.ratingCount) : null;
-      const instant = x.instantBook === true ? "instant" : "request";
-      if (!id || !title) return "";
-      return `- ${kind}:${id} | ${title} | ${cat || ""} | ${price != null ? "€" + Math.round(price) : ""} | ${dur != null ? dur + "m" : ""} | ${rating != null ? rating.toFixed(1) : ""} (${reviews != null ? reviews : 0}) | ${instant}`.trim();
-    };
-
-    const catalogText = [
-      `IN-APP TOURS (use ONLY these):`,
-      ...toursList.slice(0, 50).map((t) => fmtLine(t, "tour")).filter(Boolean),
-      `\nIN-APP EXPERIENCES (use ONLY these):`,
-      ...expsList.slice(0, 50).map((e) => fmtLine(e, "experience")).filter(Boolean),
-    ].join("\n");
-
-    const prompt = `You are a premium travel planner for a local experiences marketplace.
-Create a day-by-day itinerary for ${fullName || "the traveler"} visiting ${city}, ${country}.
-Dates: ${startDateISO} to ${endDateISO}.
-Interests: ${Array.isArray(interests) ? interests.join(", ") : ""}.
-Pace: ${pace || "balanced"}. Group size: ${groupSize || 1}. Budget per day: ${budgetPerDay || "unspecified"}.
-Extra notes: ${notes || ""}.
-
-CRITICAL RULES:
-1) The itinerary MUST be built ONLY from the in-app listings provided below. Do NOT invent attractions, restaurants, museums, landmarks, or other activities.
-2) When you place an in-app listing into the itinerary, you MUST include listingType ("tour" or "experience") and listingId (the id after the prefix).
-3) If there aren't enough suitable listings for a time slot, use a generic "Free time" item (no listingType/listingId) with a short description.
-4) Your plan should use listings that match interests, budget, group size, and pace.
-5) Populate the "used" field with arrays of listing IDs you actually used (no prefixes).
-
-${catalogText}
-
-Output must be in ${lang}. Use realistic neighborhoods/areas and include booking hints like: "Book a certified guide in-app" or "Book a host experience in-app".
-Do not include any URLs.
-Return ONLY valid JSON that matches the provided schema.`;
-
-    const plan = await openAIResponsesJSON({
-      model: "gpt-4.1-mini",
-      input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
-      schema,
-    });
-
-    // Defensive post-processing: ensure used ids are strings and strip prefixes if present.
-    try {
-      if (plan && plan.used) {
-        const strip = (arr) => (Array.isArray(arr) ? arr.map((x) => String(x || "").replace(/^tour:|^experience:/, "").trim()).filter(Boolean) : []);
-        plan.used = {
-          tours: strip(plan.used.tours),
-          experiences: strip(plan.used.experiences),
-        };
+    async function buildMap(colName) {
+      const snap = await db.collection(colName).get();
+      for (const doc of snap.docs) {
+        const d = doc.data() || {};
+        const email = (d.email || "").toString().trim().toLowerCase();
+        if (!email) continue;
+        if (doc.id === email) continue;
+        maps.push({ col: colName, fromId: doc.id, toId: email, email });
       }
-    } catch (e) {
-      // ignore
     }
 
-    const ref = db.collection("tripPlans").doc();
-    await ref.set({
-      id: ref.id,
-      uid,
-      country,
-      city,
-      startDateISO,
-      endDateISO,
-      interests: Array.isArray(interests) ? interests : [],
-      budgetPerDay: budgetPerDay ?? null,
-      pace: pace ?? null,
-      groupSize: groupSize ?? null,
-      languageCode: languageCode ?? "en",
-      plan,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    await buildMap("users");
+    await buildMap("guides");
+    await buildMap("hosts");
 
-    return { tripPlanId: ref.id, plan };
+    // Build quick lookup uid->email from users map.
+    const uidToEmail = {};
+    for (const m of maps) {
+      if (m.col === "users") uidToEmail[m.fromId] = m.toId;
+    }
+
+    const planned = {
+      copies: maps.length,
+      updates: { tours: 0, experiences: 0, bookings: 0, threads: 0, messages: 0 },
+    };
+
+    if (dryRun) {
+      return { dryRun: true, planned, sample: maps.slice(0, 10) };
+    }
+
+    // Copy docs to email IDs
+    const batchSize = 400;
+    let batch = db.batch();
+    let ops = 0;
+
+    for (const m of maps) {
+      const fromRef = db.collection(m.col).doc(m.fromId);
+      const toRef = db.collection(m.col).doc(m.toId);
+      const snap = await fromRef.get();
+      if (!snap.exists) continue;
+      const data = snap.data() || {};
+      data.uid = data.uid || m.fromId;
+      data.email = (data.email || m.email || "").toString().trim().toLowerCase();
+      data.id = m.toId;
+      batch.set(toRef, data, { merge: true });
+      ops++;
+      if (deleteOld) batch.delete(fromRef);
+      ops++;
+      if (ops >= batchSize) {
+        await batch.commit();
+        batch = db.batch();
+        ops = 0;
+      }
+    }
+    if (ops > 0) await batch.commit();
+
+    async function updateCollection(colName, fieldNames) {
+      const snap = await db.collection(colName).get();
+      let b = db.batch();
+      let n = 0;
+      for (const doc of snap.docs) {
+        const d = doc.data() || {};
+        const patch = {};
+        for (const f of fieldNames) {
+          const v = d[f];
+          if (typeof v === "string" && uidToEmail[v]) {
+            patch[f] = uidToEmail[v];
+          }
+        }
+        if (Object.keys(patch).length) {
+          b.set(doc.ref, patch, { merge: true });
+          n++;
+          if (n >= 450) {
+            await b.commit();
+            b = db.batch();
+            n = 0;
+          }
+        }
+      }
+      if (n) await b.commit();
+      return snap.size;
+    }
+
+    planned.updates.tours = await updateCollection("tours", ["guideEmail"]);
+    planned.updates.experiences = await updateCollection("experiences", ["hostEmail"]);
+    planned.updates.bookings = await updateCollection("bookings", ["userId", "providerEmail", "guideEmail", "hostEmail"]);
+    planned.updates.threads = await updateCollection("threads", ["userId", "providerEmail"]);
+    planned.updates.messages = await updateCollection("messages", ["senderId"]);
+
+    return { dryRun: false, planned };
   }
 );

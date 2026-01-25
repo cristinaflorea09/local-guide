@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SellerFinanceSettingsView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     @State private var vatRegistered: Bool = false
     @State private var vatRate: Int = 19
     @State private var toast: String?
@@ -39,8 +40,9 @@ struct SellerFinanceSettingsView: View {
 
     private func save() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        let docId = appState.session.currentUser?.id ?? uid
         do {
-            try await FirestoreService.shared.updateUser(uid: uid, fields: [
+            try await FirestoreService.shared.updateUser(uid: docId, fields: [
                 "vatRegistered": vatRegistered,
                 "vatRate": vatRate
             ])
@@ -48,6 +50,7 @@ struct SellerFinanceSettingsView: View {
             appState.session.currentUser?.vatRegistered = vatRegistered
             appState.session.currentUser?.vatRate = vatRate
             toast = "Saved ✅"
+            await MainActor.run { dismiss() }
         } catch {
             toast = error.localizedDescription
         }

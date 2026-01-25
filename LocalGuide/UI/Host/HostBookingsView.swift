@@ -7,11 +7,11 @@ struct HostBookingsView: View {
     @State private var toast: String?
 
     private var upcoming: [Booking] {
-        bookings.filter { $0.status == .confirmed && $0.endDate >= Date() }
+        bookings.filter { ($0.status == .confirmed || $0.status == .pendingPayment) && $0.endDate >= Date() }
             .sorted(by: { $0.startDate < $1.startDate })
     }
     private var past: [Booking] {
-        bookings.filter { $0.status == .confirmed && $0.endDate < Date() }
+        bookings.filter { ($0.status == .confirmed || $0.status == .pendingPayment)  && $0.endDate < Date() }
             .sorted(by: { $0.startDate > $1.startDate })
     }
 
@@ -61,12 +61,13 @@ struct HostBookingsView: View {
     }
 
     private func load() async {
-        guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let hostEmail = appState.session.firebaseUser?.email else { return }
         isLoading = true
         defer { isLoading = false }
         do {
             // Experience-only
-            bookings = try await FirestoreService.shared.getBookingsForHost(hostId: uid)
+            bookings = try await FirestoreService.shared.getBookingsForHost(hostEmail: hostEmail)
+            print(bookings)
         } catch {
             bookings = []
             toast = error.localizedDescription

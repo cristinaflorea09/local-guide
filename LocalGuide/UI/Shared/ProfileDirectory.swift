@@ -7,15 +7,18 @@ final class ProfileDirectory: ObservableObject {
     @Published private(set) var hosts: [String: HostProfile] = [:]
     @Published private(set) var users: [String: AppUser] = [:]
 
-    func guide(_ id: String) -> GuideProfile? { guides[id] }
+    func guide(_ email: String) -> GuideProfile? { guides[email] }
     func host(_ id: String) -> HostProfile? { hosts[id] }
     func user(_ id: String) -> AppUser? { users[id] }
 
-    func loadGuideIfNeeded(_ id: String) async {
-        if guides[id] != nil { return }
+    func loadGuideIfNeeded(_ email: String) async {
+        print(guides)
+        if guides[email] != nil { return }
         do {
-            let g = try await FirestoreService.shared.getGuideProfile(guideId: id)
-            guides[id] = g
+            let g = try await FirestoreService.shared.getGuideProfile(guideEmail: email)
+            print(g)
+            guides[email] = g
+            print(guides)
         } catch { }
     }
 
@@ -27,11 +30,11 @@ final class ProfileDirectory: ObservableObject {
         } catch { }
     }
 
-    func loadHostIfNeeded(_ id: String) async {
-        if hosts[id] != nil { return }
+    func loadHostIfNeeded(_ email: String) async {
+        if hosts[email] != nil { return }
         do {
-            let h = try await FirestoreService.shared.getHostProfile(hostId: id)
-            hosts[id] = h
+            let h = try await FirestoreService.shared.getHostProfile(hostEmail: email)
+            hosts[email] = h
         } catch { }
     }
 }

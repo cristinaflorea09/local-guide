@@ -44,9 +44,10 @@ struct HostGateView: View {
 
     private func refresh() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let hostEmail = appState.session.firebaseUser?.email else { return }
         isLoading = true
         do {
-            _ = try await FirestoreService.shared.getHostProfile(hostId: uid)
+            _ = try await FirestoreService.shared.getHostProfile(hostEmail: hostEmail)
             hasProfile = true
         } catch {
             hasProfile = false

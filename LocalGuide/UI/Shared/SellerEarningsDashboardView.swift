@@ -9,8 +9,7 @@ struct SellerEarningsDashboardView: View {
     @State private var shareURL: URL?
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 14) {
+        VStack(spacing: 14) {
                 monthPicker
                 summaryCards
                 payoutSection
@@ -40,9 +39,8 @@ struct SellerEarningsDashboardView: View {
                     }
                 }
             }
-            .overlay { if isLoading { ProgressView("Loading…") } }
-            .navigationTitle("Earnings")
-        }
+        .overlay { if isLoading { ProgressView("Loading…") } }
+        .navigationTitle("Earnings")
         .onAppear { Task { await load() } }
         .sheet(item: Binding(get: { shareURL.map(IdentifiedURL.init) }, set: { _ in shareURL = nil })) { item in
             ShareSheet(items: [item.url])
@@ -169,6 +167,7 @@ struct SellerEarningsDashboardView: View {
 
     private func load() async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
+        guard let providerEmail = appState.session.currentUser?.email else { return }
         isLoading = true
         defer { isLoading = false }
 
@@ -178,7 +177,7 @@ struct SellerEarningsDashboardView: View {
 
         do {
             // Pull seller bookings (guide/host). We show confirmed + canceled for a complete tax trail.
-            let all = try await FirestoreService.shared.getBookingsForProvider(providerId: uid)
+            let all = try await FirestoreService.shared.getBookingsForProvider(providerEmail: providerEmail)
             bookings = all.filter {
                 $0.createdAt.map { $0 >= start && $0 <= end } ?? true
             }

@@ -8,7 +8,7 @@ enum AvailabilityStatus: String, Codable {
 
 struct AvailabilitySlot: Codable, Identifiable {
     let id: String
-    var guideId: String
+    var email: String
     /// "tour" or "experience" (Stage 6+).
     var listingType: String? = nil
     /// tourId or experienceId (Stage 6+).

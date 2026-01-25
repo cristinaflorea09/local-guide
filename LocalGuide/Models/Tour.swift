@@ -2,7 +2,7 @@ import Foundation
 
 struct Tour: Codable, Identifiable, Hashable {
     let id: String
-    var guideId: String
+    var guideEmail: String
     var title: String
     var description: String
     var city: String
