@@ -1,9 +1,10 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct ExperienceDetailsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var appState: AppState
-    let experience: Experience
+    @State var experience: Experience
 
     @State private var host: HostProfile?
     @State private var reviews: [Review] = []
@@ -13,6 +14,7 @@ struct ExperienceDetailsView: View {
     @State private var peopleCount = 1
     @State private var selectedDay = Date()
     @State private var selectedSlot: AvailabilitySlot?
+    @State private var experienceListener: ListenerRegistration?
 
     var body: some View {
         ZStack {
@@ -151,7 +153,12 @@ struct ExperienceDetailsView: View {
                 .accessibilityLabel("Close")
             }
         }
-        .task { await loadExtras() }
+        .task {
+            await loadExtras()
+            await reloadExperience()
+        }
+        .onAppear { startListening() }
+        .onDisappear { stopListening() }
         .navigationDestination(item: $chatThread) { thread in
             ChatView(thread: thread)
                 .environmentObject(appState)
@@ -174,5 +181,26 @@ struct ExperienceDetailsView: View {
         } catch {
             // no-op
         }
+    }
+
+    private func reloadExperience() async {
+        if let latest = try? await FirestoreService.shared.getExperience(experienceId: experience.id) {
+            await MainActor.run { self.experience = latest }
+        }
+    }
+
+    private func startListening() {
+        guard experienceListener == nil else { return }
+        experienceListener = FirestoreService.shared.listenToExperience(experienceId: experience.id) { updated in
+            guard let updated else { return }
+            Task { @MainActor in
+                self.experience = updated
+            }
+        }
+    }
+
+    private func stopListening() {
+        experienceListener?.remove()
+        experienceListener = nil
     }
 }

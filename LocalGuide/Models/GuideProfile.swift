@@ -12,8 +12,13 @@ struct GuideProfile: Codable, Identifiable {
     // Compliance
     var attestationURL: String?
 
+    /// When true, this provider wants to receive custom requests from travelers.
+    /// Optional for backward compatibility with older documents.
+    var acceptsCustomRequests: Bool? = nil
+
     // Ratings
     var ratingAvg: Double
     var ratingCount: Int
     var createdAt: Date
 }
+

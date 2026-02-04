@@ -3,6 +3,9 @@ import SwiftUI
 struct AccountView: View {
     @EnvironmentObject var appState: AppState
     @State private var showSellerPlans = false
+    @State private var showCustomRequestForm = false
+    @State private var showProviderRequests = false
+    @State private var showCustomRequestDirectory = false
 
     var body: some View {
         ZStack {
@@ -61,6 +64,24 @@ struct AccountView: View {
                         }
                         .buttonStyle(LuxurySecondaryButtonStyle())
                     }
+
+                    LuxuryCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Custom requests").font(.headline)
+                            if user.role == .traveler {
+                                Button { showCustomRequestForm = true } label: { Text("Request a custom tour/experience") }
+                                    .buttonStyle(LuxurySecondaryButtonStyle())
+                            }
+                            if user.role == .traveler {
+                                Button { showCustomRequestDirectory = true } label: { Text("Find providers who accept custom requests") }
+                                    .buttonStyle(LuxurySecondaryButtonStyle())
+                            }
+                            if user.role == .guide || user.role == .host {
+                                Button { showProviderRequests = true } label: { Text("View incoming requests") }
+                                    .buttonStyle(LuxurySecondaryButtonStyle())
+                            }
+                        }
+                    }
                 }
 
                 Button { appState.session.signOut() } label: { Text("Sign Out") }
@@ -85,5 +106,33 @@ struct AccountView: View {
                     }
             }
         }
+        .fullScreenCover(isPresented: $showCustomRequestForm) {
+            NavigationStack {
+                CustomRequestFormView(prefilledProviderEmail: nil)
+                    .environmentObject(appState)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) { Button { showCustomRequestForm = false } label: { Image(systemName: "chevron.left") } }
+                    }
+            }
+        }
+        .fullScreenCover(isPresented: $showProviderRequests) {
+            NavigationStack {
+                ProviderCustomRequestsView()
+                    .environmentObject(appState)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) { Button { showProviderRequests = false } label: { Image(systemName: "chevron.left") } }
+                    }
+            }
+        }
+        .fullScreenCover(isPresented: $showCustomRequestDirectory) {
+            NavigationStack {
+                CustomRequestDirectoryView()
+                    .environmentObject(appState)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) { Button { showCustomRequestDirectory = false } label: { Image(systemName: "chevron.left") } }
+                    }
+            }
+        }
     }
 }
+

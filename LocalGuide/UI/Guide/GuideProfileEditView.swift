@@ -10,6 +10,7 @@ struct GuideProfileEditView: View {
     @State private var city = ""
     @State private var languages = ""
     @State private var bio = ""
+    @State private var acceptsCustomRequestsLocal: Bool = false
 
     @State private var profileImage: UIImage?
     @State private var remotePhotoURL: String?
@@ -78,6 +79,9 @@ struct GuideProfileEditView: View {
 
                             LuxuryTextField(title: "Languages (comma separated)", text: $languages)
                             LuxuryTextField(title: "Bio", text: $bio)
+                            Divider().opacity(0.15)
+                            Toggle("Accept custom requests", isOn: $acceptsCustomRequestsLocal)
+                                .tint(Lx.gold)
 
                             Divider().opacity(0.15)
 
@@ -160,6 +164,7 @@ struct GuideProfileEditView: View {
             bio = p.bio
             remotePhotoURL = p.photoURL
             remoteAttestationURL = p.attestationURL
+            acceptsCustomRequestsLocal = p.acceptsCustomRequests ?? false
         } catch {
             message = error.localizedDescription
         }
@@ -179,6 +184,7 @@ struct GuideProfileEditView: View {
             p.city = city
             p.languages = languages.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
             p.bio = bio
+            p.acceptsCustomRequests = acceptsCustomRequestsLocal
 
             if let profileImage {
                 p.photoURL = try await StorageService.shared.uploadGuidePhoto(uid: uid, image: profileImage)

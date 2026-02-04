@@ -3,12 +3,17 @@ import SwiftUI
 struct PostDetailView: View {
     @EnvironmentObject var appState: AppState
     @State var post: FeedPost
+    var onPostUpdated: ((FeedPost) -> Void)?
     @State private var comments: [FeedComment] = []
     @State private var newComment = ""
     @State private var isLoading = false
     @State private var showReport = false
     @State private var reportTarget: (FeedReport.TargetType, String)? = nil
     @State private var isLiked = false
+    @State private var editTarget: FeedComment?
+    @State private var editText = ""
+    @State private var deleteTarget: FeedComment?
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         ZStack {
@@ -67,6 +72,16 @@ struct PostDetailView: View {
                                         .foregroundStyle(.white)
                                     Spacer()
                                     Menu {
+                                        if canModifyComment(c) {
+                                            Button("Edit comment") {
+                                                editText = c.text
+                                                editTarget = c
+                                            }
+                                            Button("Delete comment", role: .destructive) {
+                                                deleteTarget = c
+                                                showDeleteConfirm = true
+                                            }
+                                        }
                                         Button("Report comment") {
                                             reportTarget = (.comment, c.id)
                                             showReport = true
@@ -80,7 +95,13 @@ struct PostDetailView: View {
                                     .foregroundStyle(.white.opacity(0.85))
                                     .font(.subheadline)
                                 HStack {
-                                    Label("\(c.likeCount)", systemImage: "heart")
+                                    Button {
+                                        Task { await toggleCommentLike(c) }
+                                    } label: {
+                                        Label("\(c.likeCount)", systemImage: isCommentLiked(c) ? "heart.fill" : "heart")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(Lx.gold)
                                     Spacer()
                                     Text(c.createdAt.formatted(date: .abbreviated, time: .shortened))
                                 }
@@ -123,6 +144,47 @@ struct PostDetailView: View {
                     .environmentObject(appState)
             }
         }
+        .sheet(item: $editTarget) { comment in
+            NavigationStack {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Edit comment")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                        TextEditor(text: $editText)
+                            .frame(minHeight: 120)
+                            .scrollContentBackground(.hidden)
+                            .padding(10)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Button("Save") {
+                            Task { await saveEditedComment(comment) }
+                        }
+                        .buttonStyle(LuxuryPrimaryButtonStyle())
+                        .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Spacer()
+                    }
+                    .padding(18)
+                }
+                .navigationTitle("Edit")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close") { editTarget = nil }
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+        }
+        .confirmationDialog("Delete this comment?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let target = deleteTarget {
+                    Task { await deleteComment(target) }
+                }
+            }
+            Button("Cancel", role: .cancel) { deleteTarget = nil }
+        }
     }
 
     private func load() async {
@@ -130,10 +192,12 @@ struct PostDetailView: View {
         defer { isLoading = false }
         do {
             comments = try await FirestoreService.shared.listComments(postId: post.id)
+            post.commentCount = comments.count
         } catch { }
         if let uid = appState.session.firebaseUser?.uid {
             isLiked = post.likedBy?.contains(uid) == true
         }
+        onPostUpdated?(post)
     }
 
     private func toggleLike() async {
@@ -147,6 +211,7 @@ struct PostDetailView: View {
                 post.likedBy?.append(uid)
                 isLiked = true
                 Haptics.success()
+                onPostUpdated?(post)
             }
         } catch {
             // no-op
@@ -166,6 +231,7 @@ struct PostDetailView: View {
                 }
                 isLiked = false
                 Haptics.light()
+                onPostUpdated?(post)
             }
         } catch {
             // no-op on failure
@@ -193,6 +259,83 @@ struct PostDetailView: View {
             try await FirestoreService.shared.createComment(c)
             comments.append(c)
             post.commentCount += 1
+            onPostUpdated?(post)
         } catch { }
+    }
+
+    private func isCommentLiked(_ comment: FeedComment) -> Bool {
+        guard let uid = appState.session.firebaseUser?.uid else { return false }
+        return comment.likedBy?.contains(uid) == true
+    }
+
+    private func canModifyComment(_ comment: FeedComment) -> Bool {
+        let uid = appState.session.firebaseUser?.uid
+        let email = appState.session.firebaseUser?.email?.lowercased()
+        let userId = appState.session.currentUser?.id.lowercased()
+        let author = comment.authorId.lowercased()
+        return [uid, email, userId].compactMap { $0?.lowercased() }.contains(author)
+    }
+
+    private func toggleCommentLike(_ comment: FeedComment) async {
+        guard let uid = appState.session.firebaseUser?.uid else { return }
+        if isCommentLiked(comment) {
+            do {
+                let didUnlike = try await FirestoreService.shared.unlikeComment(commentId: comment.id, userId: uid)
+                if didUnlike {
+                    updateComment(comment.id) { existing in
+                        existing.likeCount = max(0, existing.likeCount - 1)
+                        if var likedBy = existing.likedBy {
+                            likedBy.removeAll { $0 == uid }
+                            existing.likedBy = likedBy
+                        }
+                    }
+                    Haptics.light()
+                }
+            } catch { }
+        } else {
+            do {
+                let didLike = try await FirestoreService.shared.likeComment(commentId: comment.id, userId: uid)
+                if didLike {
+                    updateComment(comment.id) { existing in
+                        existing.likeCount += 1
+                        if existing.likedBy == nil { existing.likedBy = [] }
+                        existing.likedBy?.append(uid)
+                    }
+                    Haptics.success()
+                }
+            } catch { }
+        }
+    }
+
+    private func saveEditedComment(_ comment: FeedComment) async {
+        let text = editText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        do {
+            try await FirestoreService.shared.updateComment(commentId: comment.id, fields: ["text": text])
+            updateComment(comment.id) { existing in
+                existing.text = text
+            }
+            editTarget = nil
+            Haptics.success()
+        } catch { }
+    }
+
+    private func deleteComment(_ comment: FeedComment) async {
+        do {
+            try await FirestoreService.shared.deleteComment(commentId: comment.id, postId: post.id)
+            comments.removeAll { $0.id == comment.id }
+            post.commentCount = max(0, post.commentCount - 1)
+            onPostUpdated?(post)
+            deleteTarget = nil
+            showDeleteConfirm = false
+            Haptics.success()
+        } catch { }
+    }
+
+    private func updateComment(_ id: String, mutate: (inout FeedComment) -> Void) {
+        guard let idx = comments.firstIndex(where: { $0.id == id }) else { return }
+        var updated = comments[idx]
+        mutate(&updated)
+        comments[idx] = updated
     }
 }

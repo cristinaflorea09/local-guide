@@ -6,6 +6,7 @@ struct EditExperienceView: View {
     @Environment(\.dismiss) private var dismiss
 
     let experience: Experience
+    let onSave: ((Experience) -> Void)?
 
     @State private var title: String
     @State private var description: String
@@ -24,8 +25,9 @@ struct EditExperienceView: View {
     @State private var isSaving = false
     @State private var message: String?
 
-    init(experience: Experience) {
+    init(experience: Experience, onSave: ((Experience) -> Void)? = nil) {
         self.experience = experience
+        self.onSave = onSave
         _title = State(initialValue: experience.title)
         _description = State(initialValue: experience.description)
         _country = State(initialValue: experience.country ?? "")
@@ -142,6 +144,7 @@ struct EditExperienceView: View {
                 coverURL = url.absoluteString
             }
 
+            let updatedPrice = Double(price.replacingOccurrences(of: ",", with: ".")) ?? experience.price
             let fields: [String: Any] = [
                 "title": title,
                 "description": description,
@@ -149,7 +152,7 @@ struct EditExperienceView: View {
                 "city": city,
                 "address": address,
                 "durationMinutes": durationMinutes,
-                "price": Double(price.replacingOccurrences(of: ",", with: ".")) ?? experience.price,
+                "price": updatedPrice,
                 "maxPeople": maxPeople,
                 "category": category,
                 "difficulty": difficulty,
@@ -160,7 +163,38 @@ struct EditExperienceView: View {
             ]
             try await FirestoreService.shared.updateExperience(experienceId: experience.id, fields: fields)
             Haptics.success()
-            await MainActor.run { dismiss() }
+            let updated = Experience(
+                id: experience.id,
+                hostEmail: experience.hostEmail,
+                title: title,
+                description: description,
+                city: city,
+                country: country.isEmpty ? nil : country,
+                address: address.isEmpty ? nil : address,
+                coverPhotoURL: coverURL,
+                latitude: experience.latitude,
+                longitude: experience.longitude,
+                durationMinutes: durationMinutes,
+                price: updatedPrice,
+                maxPeople: maxPeople,
+                instantBook: experience.instantBook,
+                category: category,
+                difficulty: difficulty,
+                physicalEffort: physicalEffort,
+                authenticityScore: experience.authenticityScore,
+                smartPricing: experience.smartPricing,
+                ratingAvg: experience.ratingAvg,
+                ratingCount: experience.ratingCount,
+                weightedScore: experience.weightedScore,
+                weeklyScore: experience.weeklyScore,
+                cancellationPolicy: experience.cancellationPolicy,
+                active: active,
+                createdAt: experience.createdAt
+            )
+            await MainActor.run {
+                onSave?(updated)
+                dismiss()
+            }
         } catch {
             message = error.localizedDescription
         }

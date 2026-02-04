@@ -7,6 +7,7 @@ struct EditTourView: View {
     @Environment(\.dismiss) private var dismiss
 
     let tour: Tour
+    let onSave: ((Tour) -> Void)?
 
     @State private var title: String
     @State private var description: String
@@ -27,8 +28,9 @@ struct EditTourView: View {
     @State private var isSaving = false
     @State private var message: String?
 
-    init(tour: Tour) {
+    init(tour: Tour, onSave: ((Tour) -> Void)? = nil) {
         self.tour = tour
+        self.onSave = onSave
         _title = State(initialValue: tour.title)
         _description = State(initialValue: tour.description)
         _city = State(initialValue: tour.city)
@@ -145,13 +147,15 @@ struct EditTourView: View {
         defer { isSaving = false }
 
         do {
+            let updatedPrice = Double(price) ?? tour.price
+            var coverURL = tour.coverPhotoURL
             var fields: [String: Any] = [
                 "title": title,
                 "description": description,
                 "city": city,
                 "address": address.trimmingCharacters(in: .whitespacesAndNewlines),
                 "durationMinutes": durationMinutes,
-                "price": Double(price) ?? tour.price,
+                "price": updatedPrice,
                 "maxPeople": maxPeople,
                 "category": category,
                 "difficulty": difficulty,
@@ -166,15 +170,46 @@ struct EditTourView: View {
                 let userEmail = appState.session.firebaseUser?.email ?? tour.guideEmail
                 let coverPath = "tours/\(userEmail)/\(UUID().uuidString).jpg"
                 let url = try await StorageService.shared.uploadJPEG(coverImage, path: coverPath)
-                fields["coverPhotoURL"] = url.absoluteString
+                coverURL = url.absoluteString
+                fields["coverPhotoURL"] = coverURL ?? ""
             }
 
             try await FirestoreService.shared.updateTour(tourId: tour.id, fields: fields)
             Haptics.success()
-            await MainActor.run { dismiss() }
+            let updated = Tour(
+                id: tour.id,
+                guideEmail: tour.guideEmail,
+                title: title,
+                description: description,
+                city: city,
+                country: tour.country,
+                address: address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : address,
+                coverPhotoURL: coverURL,
+                latitude: Double(latitude),
+                longitude: Double(longitude),
+                durationMinutes: durationMinutes,
+                price: updatedPrice,
+                maxPeople: maxPeople,
+                instantBook: tour.instantBook,
+                category: category,
+                difficulty: difficulty,
+                physicalEffort: physicalEffort,
+                authenticityScore: Int(authenticityScore),
+                smartPricing: tour.smartPricing,
+                ratingAvg: tour.ratingAvg,
+                ratingCount: tour.ratingCount,
+                weightedScore: tour.weightedScore,
+                weeklyScore: tour.weeklyScore,
+                cancellationPolicy: tour.cancellationPolicy,
+                active: active,
+                createdAt: tour.createdAt
+            )
+            await MainActor.run {
+                onSave?(updated)
+                dismiss()
+            }
         } catch {
             message = error.localizedDescription
         }
     }
 }
-

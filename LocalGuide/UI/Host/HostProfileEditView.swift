@@ -9,6 +9,7 @@ struct HostProfileEditView: View {
     @State private var city = ""
     @State private var categories = ""
     @State private var bio = ""
+    @State private var acceptsCustomRequestsLocal: Bool = false
     @State private var profileImage: UIImage?
     @State private var remotePhotoURL: String?
 
@@ -63,6 +64,9 @@ struct HostProfileEditView: View {
 
                             LuxuryTextField(title: "Categories (comma separated)", text: $categories)
                             LuxuryTextField(title: "Bio", text: $bio)
+                            Divider().opacity(0.15)
+                            Toggle("Accept custom requests", isOn: $acceptsCustomRequestsLocal)
+                                .tint(Lx.gold)
                         }
                     }
 
@@ -95,6 +99,7 @@ struct HostProfileEditView: View {
             categories = p.categories.joined(separator: ", ")
             bio = p.bio
             remotePhotoURL = p.photoURL
+            acceptsCustomRequestsLocal = p.acceptsCustomRequests ?? false
         } catch {
             message = error.localizedDescription
         }
@@ -113,6 +118,7 @@ struct HostProfileEditView: View {
             p.city = city
             p.categories = categories.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
             p.bio = bio
+            p.acceptsCustomRequests = acceptsCustomRequestsLocal
 
             if let profileImage {
                 p.photoURL = try await StorageService.shared.uploadUserPhoto(uid: uid, image: profileImage)
@@ -130,3 +136,4 @@ struct HostProfileEditView: View {
         isLoading = false
     }
 }
+

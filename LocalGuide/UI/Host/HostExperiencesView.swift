@@ -94,6 +94,9 @@ struct HostExperiencesView: View {
             }
             .navigationDestination(item: $editTarget) { exp in
                 EditExperienceView(experience: exp)
+                    .onDisappear {
+                        Task { await load() }
+                    }
             }
             .task { await load() }
             .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
@@ -114,3 +117,4 @@ struct HostExperiencesView: View {
         }
     }
 }
+

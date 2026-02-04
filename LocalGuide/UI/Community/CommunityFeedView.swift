@@ -51,7 +51,12 @@ struct CommunityFeedView: View {
             }
             .fullScreenCover(item: $selectedPost) { post in
                 NavigationStack {
-                    PostDetailView(post: post)
+                    PostDetailView(post: post) { updated in
+                        updatePost(updated)
+                        if selectedPost?.id == updated.id {
+                            selectedPost = updated
+                        }
+                    }
                         .environmentObject(appState)
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
@@ -74,6 +79,12 @@ struct CommunityFeedView: View {
             posts = try await FirestoreService.shared.listPosts(limit: 60)
         } catch {
             posts = []
+        }
+    }
+
+    private func updatePost(_ updated: FeedPost) {
+        if let idx = posts.firstIndex(where: { $0.id == updated.id }) {
+            posts[idx] = updated
         }
     }
 }

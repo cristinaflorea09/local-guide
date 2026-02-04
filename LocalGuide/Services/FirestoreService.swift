@@ -21,6 +21,7 @@ final class FirestoreService {
     private var postCommentsCol: CollectionReference { db.collection("postComments") }
     private var postReportsCol: CollectionReference { db.collection("postReports") }
     private var tripPlansCol: CollectionReference { db.collection("tripPlans") }
+    private var customRequestsCol: CollectionReference { db.collection("customRequests") }
 
     // Firestore doc ids are migrated to use lowercased email where possible.
     private func emailKey(_ email: String?) -> String? {
@@ -245,6 +246,16 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         return try doc.data(as: Tour.self)
     }
 
+    func listenToTour(tourId: String, onChange: @escaping (Tour?) -> Void) -> ListenerRegistration {
+        toursCol.document(tourId).addSnapshotListener { snap, _ in
+            guard let snap, snap.exists, let tour = try? snap.data(as: Tour.self) else {
+                onChange(nil)
+                return
+            }
+            onChange(tour)
+        }
+    }
+
     func listTopRatedToursThisWeek(limit: Int = 10) async throws -> [Tour] {
         let snap = try await toursCol
             .whereField("active", isEqualTo: true)
@@ -295,6 +306,16 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         return try doc.data(as: Experience.self)
     }
 
+    func listenToExperience(experienceId: String, onChange: @escaping (Experience?) -> Void) -> ListenerRegistration {
+        experiencesCol.document(experienceId).addSnapshotListener { snap, _ in
+            guard let snap, snap.exists, let exp = try? snap.data(as: Experience.self) else {
+                onChange(nil)
+                return
+            }
+            onChange(exp)
+        }
+    }
+
     func listTopRatedExperiencesThisWeek(limit: Int = 10) async throws -> [Experience] {
         let snap = try await experiencesCol
             .whereField("active", isEqualTo: true)
@@ -338,6 +359,33 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
 
     func updateTripPlan(tripPlanId: String, fields: [String: Any]) async throws {
         try await tripPlansCol.document(tripPlanId).updateData(fields)
+    }
+
+    // MARK: - Custom Requests
+    func createCustomRequest(_ req: CustomRequest) async throws {
+        try customRequestsCol.document(req.id).setData(from: req, merge: true)
+    }
+
+    func listCustomRequestsForUser(userId: String, limit: Int = 100) async throws -> [CustomRequest] {
+        let snap = try await customRequestsCol
+            .whereField("requesterId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+            .getDocuments()
+        return try snap.documents.compactMap { try $0.data(as: CustomRequest.self) }
+    }
+
+    func listCustomRequestsForProvider(providerEmail: String, limit: Int = 100) async throws -> [CustomRequest] {
+        let snap = try await customRequestsCol
+            .whereField("providerEmail", isEqualTo: providerEmail)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+            .getDocuments()
+        return try snap.documents.compactMap { try $0.data(as: CustomRequest.self) }
+    }
+
+    func updateCustomRequest(requestId: String, fields: [String: Any]) async throws {
+        try await customRequestsCol.document(requestId).updateData(fields)
     }
 
     func getBookingsForGuide(guideEmail: String) async throws -> [Booking] {
@@ -669,6 +717,70 @@ func sendMessage(threadId: String, senderId: String, text: String, userId: Strin
     func createComment(_ comment: FeedComment) async throws {
         try postCommentsCol.document(comment.id).setData(from: comment, merge: true)
         try await postsCol.document(comment.postId).updateData(["commentCount": FieldValue.increment(Int64(1))])
+    }
+
+    /// Like a comment once. Returns true if a new like was recorded, false if already liked.
+    func likeComment(commentId: String, userId: String) async throws -> Bool {
+        let ref = postCommentsCol.document(commentId)
+        let result: Bool? = try await db.runTransaction { tx, errorPointer in
+            do {
+                let snap = try tx.getDocument(ref)
+                var likedBy = (snap.get("likedBy") as? [String]) ?? []
+                if likedBy.contains(userId) { return false }
+                likedBy.append(userId)
+                tx.updateData([
+                    "likedBy": likedBy,
+                    "likeCount": FieldValue.increment(Int64(1))
+                ], forDocument: ref)
+                return true
+            } catch {
+                if let errorPointer = errorPointer {
+                    errorPointer.pointee = error as NSError
+                }
+                return nil
+            }
+        } as? Bool
+        guard let unwrapped = result else {
+            throw NSError(domain: "FirestoreService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to complete comment like transaction"])
+        }
+        return unwrapped
+    }
+
+    func unlikeComment(commentId: String, userId: String) async throws -> Bool {
+        let ref = postCommentsCol.document(commentId)
+        let result: Bool? = try await db.runTransaction { tx, errorPointer in
+            do {
+                let snap = try tx.getDocument(ref)
+                var likedBy = (snap.get("likedBy") as? [String]) ?? []
+                if let idx = likedBy.firstIndex(of: userId) {
+                    likedBy.remove(at: idx)
+                    tx.updateData([
+                        "likedBy": likedBy,
+                        "likeCount": FieldValue.increment(Int64(-1))
+                    ], forDocument: ref)
+                    return true
+                }
+                return false
+            } catch {
+                if let errorPointer = errorPointer {
+                    errorPointer.pointee = error as NSError
+                }
+                return nil
+            }
+        } as? Bool
+        guard let unwrapped = result else {
+            throw NSError(domain: "FirestoreService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to complete comment unlike transaction"])
+        }
+        return unwrapped
+    }
+
+    func updateComment(commentId: String, fields: [String: Any]) async throws {
+        try await postCommentsCol.document(commentId).updateData(fields)
+    }
+
+    func deleteComment(commentId: String, postId: String) async throws {
+        try await postCommentsCol.document(commentId).delete()
+        try? await postsCol.document(postId).updateData(["commentCount": FieldValue.increment(Int64(-1))])
     }
 
     func listComments(postId: String, limit: Int = 100) async throws -> [FeedComment] {
