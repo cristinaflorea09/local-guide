@@ -39,7 +39,9 @@
 		FF8013092F16C42600E18390 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = FF8013082F16C42600E18390 /* StripePaymentSheet */; };
 		FF80130B2F16C42600E18390 /* StripePayments in Frameworks */ = {isa = PBXBuildFile; productRef = FF80130A2F16C42600E18390 /* StripePayments */; };
 		FF80130D2F16C42600E18390 /* StripePaymentsUI in Frameworks */ = {isa = PBXBuildFile; productRef = FF80130C2F16C42600E18390 /* StripePaymentsUI */; };
-		FFC71E682F265647005A53A0 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FFC71E672F265647005A53A0 /* GoogleService-Info.plist */; };
+		FF95F4D62F332A5500DA6DC1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = FF95F4D52F332A5500DA6DC1 /* GoogleSignIn */; };
+		FF95F4D82F332A5500DA6DC1 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FF95F4D72F332A5500DA6DC1 /* GoogleSignInSwift */; };
+		FF95F4E02F332F4400DA6DC1 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FF95F4DF2F332F4400DA6DC1 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,7 +65,7 @@
 		FF80118D2F1682F100E18390 /* LocalGuide.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LocalGuide.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF80119D2F1682F200E18390 /* LocalGuideTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalGuideTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF8011A72F1682F200E18390 /* LocalGuideUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LocalGuideUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		FFC71E672F265647005A53A0 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		FF95F4DF2F332F4400DA6DC1 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -104,12 +106,14 @@
 			files = (
 				FF8012FF2F16C42600E18390 /* StripeApplePay in Frameworks */,
 				FF8012E62F16AEAA00E18390 /* FirebaseFirestoreCombine-Community in Frameworks */,
+				FF95F4D62F332A5500DA6DC1 /* GoogleSignIn in Frameworks */,
 				FF8012E82F16AEAA00E18390 /* FirebaseFunctions in Frameworks */,
 				FF8012F42F16AEAA00E18390 /* FirebasePerformance in Frameworks */,
 				FF8013092F16C42600E18390 /* StripePaymentSheet in Frameworks */,
 				FF8012FA2F16AEAA00E18390 /* FirebaseStorageCombine-Community in Frameworks */,
 				FF8013072F16C42600E18390 /* StripeIdentity in Frameworks */,
 				FF80130B2F16C42600E18390 /* StripePayments in Frameworks */,
+				FF95F4D82F332A5500DA6DC1 /* GoogleSignInSwift in Frameworks */,
 				FF8012F62F16AEAA00E18390 /* FirebaseRemoteConfig in Frameworks */,
 				FF8012FD2F16C42600E18390 /* Stripe in Frameworks */,
 				FF8012DA2F16AEAA00E18390 /* FirebaseAppDistribution-Beta in Frameworks */,
@@ -157,10 +161,11 @@
 		FF8011842F1682F100E18390 = {
 			isa = PBXGroup;
 			children = (
-				FFC71E672F265647005A53A0 /* GoogleService-Info.plist */,
+				FF95F4DF2F332F4400DA6DC1 /* GoogleService-Info.plist */,
 				FF80118F2F1682F100E18390 /* LocalGuide */,
 				FF8011A02F1682F200E18390 /* LocalGuideTests */,
 				FF8011AA2F1682F200E18390 /* LocalGuideUITests */,
+				FF95F4D42F332A5500DA6DC1 /* Frameworks */,
 				FF80118E2F1682F100E18390 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -173,6 +178,13 @@
 				FF8011A72F1682F200E18390 /* LocalGuideUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		FF95F4D42F332A5500DA6DC1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -227,6 +239,8 @@
 				FF8013082F16C42600E18390 /* StripePaymentSheet */,
 				FF80130A2F16C42600E18390 /* StripePayments */,
 				FF80130C2F16C42600E18390 /* StripePaymentsUI */,
+				FF95F4D52F332A5500DA6DC1 /* GoogleSignIn */,
+				FF95F4D72F332A5500DA6DC1 /* GoogleSignInSwift */,
 			);
 			productName = LocalGuide;
 			productReference = FF80118D2F1682F100E18390 /* LocalGuide.app */;
@@ -315,6 +329,7 @@
 				FF8012CC2F16AEAA00E18390 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */,
 				FFA81A222F1AC12F004D9CA4 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */,
+				FF95F4D32F33274D00DA6DC1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FF80118E2F1682F100E18390 /* Products */;
@@ -333,7 +348,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FFC71E682F265647005A53A0 /* GoogleService-Info.plist in Resources */,
+				FF95F4E02F332F4400DA6DC1 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -710,6 +725,14 @@
 				minimumVersion = 25.4.0;
 			};
 		};
+		FF95F4D32F33274D00DA6DC1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
 		FFA81A222F1AC12F004D9CA4 /* XCRemoteSwiftPackageReference "ios-maps-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/googlemaps/ios-maps-sdk";
@@ -880,6 +903,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FF8012FB2F16C42600E18390 /* XCRemoteSwiftPackageReference "stripe-ios" */;
 			productName = StripePaymentsUI;
+		};
+		FF95F4D52F332A5500DA6DC1 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF95F4D32F33274D00DA6DC1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		FF95F4D72F332A5500DA6DC1 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF95F4D32F33274D00DA6DC1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

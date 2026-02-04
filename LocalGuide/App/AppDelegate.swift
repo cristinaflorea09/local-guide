@@ -2,6 +2,9 @@ import UIKit
 import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
     func application(_ application: UIApplication,
@@ -16,6 +19,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     }
 
     private func requestNotificationAuthorization() {
+        if AppEnvironment.isUITest { return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if let error = error {
                 print("Notification authorization error: \(error)")
@@ -39,4 +43,15 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         print("FCM token: \(fcmToken ?? "nil")")
         // TODO: Optionally send this token to your backend server.
     }
+
+#if canImport(GoogleSignIn)
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+        return GIDSignIn.sharedInstance.handle(url)
+    }
+#else
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+        // GoogleSignIn SDK not available; no URL handling needed
+        return false
+    }
+#endif
 }

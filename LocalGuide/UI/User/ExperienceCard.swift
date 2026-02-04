@@ -66,18 +66,11 @@ struct ExperienceCard: View {
     @ViewBuilder
     private var cover: some View {
         if let urlStr = experience.coverPhotoURL, let url = URL(string: urlStr) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFill()
-                        .overlay(LinearGradient(colors: [Color.black.opacity(0.18), Color.black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
-                case .failure(_):
-                    fallbackCover
-                case .empty:
-                    fallbackCover.overlay(ProgressView().tint(Lx.gold))
-                @unknown default:
-                    fallbackCover
-                }
+            CachedAsyncImage(url: url) { img in
+                img.resizable().scaledToFill()
+                    .overlay(LinearGradient(colors: [Color.black.opacity(0.18), Color.black.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+            } placeholder: {
+                fallbackCover.overlay(ProgressView().tint(Lx.gold))
             }
         } else {
             fallbackCover

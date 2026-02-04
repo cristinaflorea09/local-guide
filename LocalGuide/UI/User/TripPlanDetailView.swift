@@ -356,18 +356,12 @@ private struct ItineraryListingCard: View {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(.white.opacity(0.06))
                     if let imageURL {
-                        AsyncImage(url: imageURL) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView().tint(Lx.gold)
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                            default:
-                                Image(systemName: isTour ? "map" : "sparkles")
-                                    .foregroundStyle(.white.opacity(0.7))
-                            }
+                        CachedAsyncImage(url: imageURL) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            ProgressView().tint(Lx.gold)
                         }
                     } else {
                         Image(systemName: isTour ? "map" : "sparkles")
@@ -441,4 +435,3 @@ private struct ItineraryListingCard: View {
         }
     }
 }
-

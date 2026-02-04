@@ -36,7 +36,13 @@ struct LocalGuideProApp: App {
             AppCheck.setAppCheckProviderFactory(DeviceCheckProviderFactory())
         }
         #endif
-        FirebaseApp.configure()
+        if FirebaseApp.app() == nil {
+            if let options = AppEnvironment.firebaseOptions {
+                FirebaseApp.configure(options: options)
+            } else {
+                FirebaseApp.configure()
+            }
+        }
 #if canImport(GoogleMaps)
 // TODO: Put your key in AppConfig.googleMapsAPIKey
 if !AppConfig.googleMapsAPIKey.isEmpty {

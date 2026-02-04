@@ -176,21 +176,12 @@ struct TourDetailsView: View {
             Circle().fill(Color.white.opacity(0.10)).frame(width: 54, height: 54)
                 .overlay(Circle().stroke(Lx.gold.opacity(0.22), lineWidth: 1))
             if let url, let u = URL(string: url) {
-                AsyncImage(url: u) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img
-                            .resizable()
-                            .scaledToFill()
-                    case .empty:
-                        ProgressView()
-                    case .failure(_):
-                        Image(systemName: "person.fill")
-                            .foregroundStyle(Lx.gold)
-                    @unknown default:
-                        Image(systemName: "person.fill")
-                            .foregroundStyle(Lx.gold)
-                    }
+                CachedAsyncImage(url: u) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    ProgressView()
                 }
                 .frame(width: 54, height: 54)
                 .clipShape(Circle())

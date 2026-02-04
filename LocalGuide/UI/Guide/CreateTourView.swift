@@ -49,8 +49,8 @@ struct CreateTourView: View {
 
                     LuxuryCard {
                         VStack(alignment: .leading, spacing: 12) {
-                            LuxuryTextField(title: "Title", text: $title)
-                            LuxuryTextField(title: "Description", text: $description)
+                            LuxuryTextField(title: "Title", text: $title, identifier: "tour_create_title")
+                            LuxuryTextField(title: "Description", text: $description, identifier: "tour_create_description")
 
                             Text("Category")
                                 .font(.caption.weight(.semibold))
@@ -152,6 +152,7 @@ struct CreateTourView: View {
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
                     .disabled(isLoading || title.isEmpty || description.isEmpty || city.isEmpty || coverImage == nil)
+                    .accessibilityIdentifier("tour_publish")
 
                     Text("Tip: a high-quality cover image improves bookings.")
                         .font(.caption)
@@ -164,6 +165,40 @@ struct CreateTourView: View {
         }
         .navigationTitle("Create")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            guard AppEnvironment.uiTestAutofill else { return }
+            if title.isEmpty {
+                title = AppEnvironment.uiTestTourTitle ?? "UI Test Tour \(Int(Date().timeIntervalSince1970))"
+            }
+            if description.isEmpty {
+                description = AppEnvironment.uiTestTourDescription ?? "UI test tour description"
+            }
+            if country.isEmpty { country = AppEnvironment.uiTestCountry ?? "Romania" }
+            if city.isEmpty {
+                let target = AppEnvironment.uiTestCity ?? "Bucharest"
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    city = target
+                }
+            }
+            if coverImage == nil { coverImage = makeTestImage() }
+        }
+    }
+
+    private func makeTestImage() -> UIImage {
+        let size = CGSize(width: 300, height: 200)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            UIColor(red: 0.10, green: 0.10, blue: 0.10, alpha: 1).setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            let attrs: [NSAttributedString.Key: Any] = [
+                .foregroundColor: UIColor.white,
+                .font: UIFont.boldSystemFont(ofSize: 24)
+            ]
+            let text = "UI TEST"
+            let textSize = text.size(withAttributes: attrs)
+            let origin = CGPoint(x: (size.width - textSize.width) / 2, y: (size.height - textSize.height) / 2)
+            text.draw(at: origin, withAttributes: attrs)
+        }
     }
 
     private func publish() async {

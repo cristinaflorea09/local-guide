@@ -29,6 +29,98 @@ final class FirestoreService {
         return e.lowercased()
     }
 
+    private func deleteAllDocuments(matching baseQuery: Query, batchSize: Int = 400) async throws {
+        var last: DocumentSnapshot? = nil
+        while true {
+            var query = baseQuery.limit(to: batchSize)
+            if let last {
+                query = query.start(afterDocument: last)
+            }
+            let snap = try await query.getDocuments()
+            if snap.documents.isEmpty { break }
+
+            let batch = db.batch()
+            for doc in snap.documents {
+                batch.deleteDocument(doc.reference)
+            }
+            try await batch.commit()
+
+            last = snap.documents.last
+            if snap.documents.count < batchSize { break }
+        }
+    }
+
+    func deleteUserData(uid: String, email: String?) async throws {
+        let emailLower = emailKey(email)
+        let emailRaw = email?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let emailVariants = Set([emailLower, emailRaw].compactMap { $0?.lowercased() } + [emailRaw].compactMap { $0 })
+
+        // User docs (email-key + legacy uid + uid field)
+        for e in emailVariants {
+            try? await usersCol.document(e).delete()
+        }
+        try? await usersCol.document(uid).delete()
+        try? await deleteAllDocuments(matching: usersCol.whereField("uid", isEqualTo: uid))
+
+        // Provider profiles
+        for e in emailVariants {
+            try? await guidesCol.document(e).delete()
+            try? await hostsCol.document(e).delete()
+        }
+
+        // Listings
+        for e in emailVariants {
+            try? await deleteAllDocuments(matching: toursCol.whereField("guideEmail", isEqualTo: e))
+            try? await deleteAllDocuments(matching: experiencesCol.whereField("hostEmail", isEqualTo: e))
+        }
+
+        // Availability slots
+        for e in emailVariants {
+            try? await deleteAllDocuments(matching: availabilityCol.whereField("email", isEqualTo: e))
+        }
+
+        // Bookings (as traveler + provider)
+        try? await deleteAllDocuments(matching: bookingsCol.whereField("userId", isEqualTo: uid))
+        for e in emailVariants {
+            try? await deleteAllDocuments(matching: bookingsCol.whereField("providerEmail", isEqualTo: e))
+            try? await deleteAllDocuments(matching: bookingsCol.whereField("guideEmail", isEqualTo: e))
+        }
+
+        // Reviews
+        try? await deleteAllDocuments(matching: reviewsCol.whereField("userId", isEqualTo: uid))
+        for e in emailVariants {
+            try? await deleteAllDocuments(matching: reviewsCol.whereField("providerEmail", isEqualTo: e))
+        }
+
+        // Trip plans
+        try? await deleteAllDocuments(matching: tripPlansCol.whereField("uid", isEqualTo: uid))
+
+        // Custom requests
+        try? await deleteAllDocuments(matching: customRequestsCol.whereField("requesterId", isEqualTo: uid))
+        for e in emailVariants {
+            try? await deleteAllDocuments(matching: customRequestsCol.whereField("providerEmail", isEqualTo: e))
+        }
+
+        // Community posts/comments/reports
+        let authorIds = Set([uid] + Array(emailVariants))
+        for authorId in authorIds {
+            if let postsSnap = try? await postsCol.whereField("authorId", isEqualTo: authorId).getDocuments() {
+                for doc in postsSnap.documents {
+                    try? await deleteAllDocuments(matching: postCommentsCol.whereField("postId", isEqualTo: doc.documentID))
+                }
+            }
+            try? await deleteAllDocuments(matching: postsCol.whereField("authorId", isEqualTo: authorId))
+            try? await deleteAllDocuments(matching: postCommentsCol.whereField("authorId", isEqualTo: authorId))
+            try? await deleteAllDocuments(matching: postReportsCol.whereField("reporterId", isEqualTo: authorId))
+        }
+
+        // Chat threads (user or provider)
+        try? await deleteAllDocuments(matching: threadsCol.whereField("userId", isEqualTo: uid))
+        for e in emailVariants {
+            try? await deleteAllDocuments(matching: threadsCol.whereField("email", isEqualTo: e))
+        }
+    }
+
     // MARK: Users
     func createUser(_ user: AppUser) async throws {
         var u = user
@@ -144,6 +236,18 @@ final class FirestoreService {
         try await usersCol.document(uid).updateData(fields)
     }
 
+    func blockUser(docId: String, blockedId: String) async throws {
+        try await usersCol.document(docId).updateData([
+            "blockedUserIds": FieldValue.arrayUnion([blockedId])
+        ])
+    }
+
+    func unblockUser(docId: String, blockedId: String) async throws {
+        try await usersCol.document(docId).updateData([
+            "blockedUserIds": FieldValue.arrayRemove([blockedId])
+        ])
+    }
+
     func listUsers(limit: Int = 200) async throws -> [AppUser] {
         let snap = try await usersCol.order(by: "createdAt", descending: true).limit(to: limit).getDocuments()
         return try snap.documents.compactMap { try $0.data(as: AppUser.self) }
@@ -241,6 +345,23 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
         return try snap.documents.compactMap { try $0.data(as: Tour.self) }
     }
 
+    func getToursForGuidePage(
+        guideEmail: String,
+        limit: Int = 20,
+        startAfter: DocumentSnapshot? = nil
+    ) async throws -> (items: [Tour], last: DocumentSnapshot?) {
+        var query: Query = toursCol
+            .whereField("guideEmail", isEqualTo: guideEmail)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+        if let startAfter {
+            query = query.start(afterDocument: startAfter)
+        }
+        let snap = try await query.getDocuments()
+        let items = try snap.documents.compactMap { try $0.data(as: Tour.self) }
+        return (items, snap.documents.last)
+    }
+
     func getTour(tourId: String) async throws -> Tour {
         let doc = try await toursCol.document(tourId).getDocument()
         return try doc.data(as: Tour.self)
@@ -299,6 +420,23 @@ func updateGuideProfile(_ profile: GuideProfile) async throws {
             .order(by: "createdAt", descending: true)
             .getDocuments()
         return try snap.documents.compactMap { try $0.data(as: Experience.self) }
+    }
+
+    func getExperiencesForHostPage(
+        hostEmail: String,
+        limit: Int = 20,
+        startAfter: DocumentSnapshot? = nil
+    ) async throws -> (items: [Experience], last: DocumentSnapshot?) {
+        var query: Query = experiencesCol
+            .whereField("hostEmail", isEqualTo: hostEmail)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+        if let startAfter {
+            query = query.start(afterDocument: startAfter)
+        }
+        let snap = try await query.getDocuments()
+        let items = try snap.documents.compactMap { try $0.data(as: Experience.self) }
+        return (items, snap.documents.last)
     }
 
     func getExperience(experienceId: String) async throws -> Experience {

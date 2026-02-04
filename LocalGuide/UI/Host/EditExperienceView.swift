@@ -54,7 +54,7 @@ struct EditExperienceView: View {
 
                     LuxuryCard {
                         VStack(alignment: .leading, spacing: 12) {
-                            LuxuryTextField(title: "Title", text: $title)
+                            LuxuryTextField(title: "Title", text: $title, identifier: "experience_edit_title")
                             LuxuryTextField(title: "Description", text: $description)
 
                             Text("Category")
@@ -115,6 +115,7 @@ struct EditExperienceView: View {
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
                     .disabled(isSaving || title.isEmpty || description.isEmpty || city.isEmpty)
+                    .accessibilityIdentifier("experience_edit_save")
 
                     Spacer(minLength: 10)
                 }

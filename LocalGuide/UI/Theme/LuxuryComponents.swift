@@ -72,6 +72,7 @@ struct LuxuryTextField: View {
     @Binding var text: String
     var secure: Bool = false
     var keyboard: UIKeyboardType = .default
+    var identifier: String? = nil
     
     // For password fields, allow toggling visibility with an eye button.
     @State private var isRevealed: Bool = false
@@ -82,33 +83,33 @@ struct LuxuryTextField: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             HStack(spacing: 10) {
-                            if secure {
-                                if isRevealed {
-                                    TextField("", text: $text)
-                                        .keyboardType(keyboard)
-                                        .textInputAutocapitalization(.never)
-                                } else {
-                                    SecureField("", text: $text)
-                                        .keyboardType(keyboard)
-                                        .textInputAutocapitalization(.never)
-                                }
+                if secure {
+                    if isRevealed {
+                        textFieldView(TextField("", text: $text))
+                            .keyboardType(keyboard)
+                            .textInputAutocapitalization(.never)
+                    } else {
+                        textFieldView(SecureField("", text: $text))
+                            .keyboardType(keyboard)
+                            .textInputAutocapitalization(.never)
+                    }
 
-                                Button {
-                                    isRevealed.toggle()
-                                    Haptics.light()
-                                } label: {
-                                    Image(systemName: isRevealed ? "eye.slash" : "eye")
-                                        .foregroundStyle(.white.opacity(0.8))
-                                        .padding(.leading, 6)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(isRevealed ? "Hide password" : "Show password")
-                            } else {
-                                TextField("", text: $text)
-                                    .keyboardType(keyboard)
-                                    .textInputAutocapitalization(.never)
-                            }
-                        }
+                    Button {
+                        isRevealed.toggle()
+                        Haptics.light()
+                    } label: {
+                        Image(systemName: isRevealed ? "eye.slash" : "eye")
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(.leading, 6)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isRevealed ? "Hide password" : "Show password")
+                } else {
+                    textFieldView(TextField("", text: $text))
+                        .keyboardType(keyboard)
+                        .textInputAutocapitalization(.never)
+                }
+            }
         }
         .padding(14)
         .background(
@@ -119,5 +120,14 @@ struct LuxuryTextField: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Lx.gold.opacity(0.16), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private func textFieldView<T: View>(_ field: T) -> some View {
+        if let identifier {
+            field.accessibilityIdentifier(identifier)
+        } else {
+            field
+        }
     }
 }

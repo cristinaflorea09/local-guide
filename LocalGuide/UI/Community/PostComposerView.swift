@@ -31,8 +31,8 @@ struct PostComposerView: View {
                                 }
                                 .pickerStyle(.segmented)
 
-                                LuxuryTextField(title: "Title", text: $title)
-                                LuxuryTextField(title: "City (optional)", text: $city)
+                                LuxuryTextField(title: "Title", text: $title, identifier: "post_title")
+                                LuxuryTextField(title: "City (optional)", text: $city, identifier: "post_city")
 
                                 Text("Message")
                                     .font(.caption.weight(.semibold))
@@ -43,6 +43,7 @@ struct PostComposerView: View {
                                     .padding(10)
                                     .background(Color.white.opacity(0.06))
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .accessibilityIdentifier("post_body")
                             }
                         }
 
@@ -58,6 +59,7 @@ struct PostComposerView: View {
                         }
                         .buttonStyle(LuxuryPrimaryButtonStyle())
                         .disabled(isLoading || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .accessibilityIdentifier("post_submit")
                     }
                     .padding(18)
                 }
@@ -68,6 +70,11 @@ struct PostComposerView: View {
                         .foregroundStyle(.white)
                 }
             }
+        }
+        .onAppear {
+            guard AppEnvironment.uiTestAutofill else { return }
+            if let value = AppEnvironment.uiTestPostTitle { title = value }
+            if let value = AppEnvironment.uiTestPostBody { text = value }
         }
     }
 

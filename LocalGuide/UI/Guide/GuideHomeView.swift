@@ -5,7 +5,8 @@ struct GuideHomeView: View {
     @EnvironmentObject var chatUnread: ChatUnreadService
 
     private var isApproved: Bool {
-        (appState.session.currentUser?.guideApproved ?? false) == true
+        if AppEnvironment.isUITest { return true }
+        return (appState.session.currentUser?.guideApproved ?? false) == true
     }
 
     var body: some View {

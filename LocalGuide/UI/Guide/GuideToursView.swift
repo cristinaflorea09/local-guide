@@ -1,10 +1,15 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct GuideToursView: View {
     @EnvironmentObject var appState: AppState
     @State private var tours: [Tour] = []
     @State private var isLoading = false
     @State private var editTarget: Tour?
+    @State private var lastDoc: DocumentSnapshot?
+    @State private var hasMore = true
+    @State private var isLoadingMore = false
+    private let pageSize = 20
 
     enum SortOption: String, CaseIterable, Identifiable {
         case newest = "Newest"
@@ -58,9 +63,21 @@ struct GuideToursView: View {
                         .tint(.blue)
                     }
                 }
+                if hasMore {
+                    HStack {
+                        Spacer()
+                        if isLoadingMore {
+                            ProgressView()
+                        } else {
+                            Button("Load more") { Task { await loadMore() } }
+                                .disabled(isLoading || lastDoc == nil)
+                        }
+                        Spacer()
+                    }
+                }
             }
             .overlay {
-                if isLoading { ProgressView("Loading…") }
+                if isLoading && tours.isEmpty { ProgressView("Loading…") }
                 if !isLoading && tours.isEmpty { ContentUnavailableView("No tours yet", systemImage: "map") }
             }
             .navigationTitle("My Tours")
@@ -71,20 +88,56 @@ struct GuideToursView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier("guide_tour_create")
                 }
             }
             .task { await load() }
-            .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-                Task { await load() }
-            }
+            .onAppear { Task { await load() } }
             .refreshable { await load() }
         }
     }
 
     private func load() async {
         guard let email = appState.session.firebaseUser?.email else { return }
+        if let cached = appState.cachedGuideTours[email], !cached.isEmpty {
+            tours = cached
+            hasMore = cached.count >= pageSize
+        }
         isLoading = true
-        do { tours = try await FirestoreService.shared.getToursForGuide(guideEmail: email) } catch { tours = [] }
-        isLoading = false
+        defer { isLoading = false }
+        do {
+            let result = try await FirestoreService.shared.getToursForGuidePage(
+                guideEmail: email,
+                limit: pageSize,
+                startAfter: nil
+            )
+            tours = result.items
+            lastDoc = result.last
+            hasMore = result.items.count == pageSize
+            appState.cachedGuideTours[email] = tours
+        } catch {
+            if tours.isEmpty { tours = [] }
+            hasMore = false
+        }
+    }
+
+    private func loadMore() async {
+        guard let email = appState.session.firebaseUser?.email else { return }
+        guard hasMore, !isLoadingMore else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        do {
+            let result = try await FirestoreService.shared.getToursForGuidePage(
+                guideEmail: email,
+                limit: pageSize,
+                startAfter: lastDoc
+            )
+            if !result.items.isEmpty {
+                tours.append(contentsOf: result.items)
+            }
+            lastDoc = result.last
+            hasMore = result.items.count == pageSize
+            appState.cachedGuideTours[email] = tours
+        } catch { }
     }
 }

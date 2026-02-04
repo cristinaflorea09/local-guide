@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PostDetailView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.openURL) private var openURL
     @State var post: FeedPost
     var onPostUpdated: ((FeedPost) -> Void)?
     @State private var comments: [FeedComment] = []
@@ -14,6 +15,7 @@ struct PostDetailView: View {
     @State private var editText = ""
     @State private var deleteTarget: FeedComment?
     @State private var showDeleteConfirm = false
+    @State private var blockError: String?
 
     var body: some View {
         ZStack {
@@ -29,6 +31,14 @@ struct PostDetailView: View {
                                     Button("Report post") {
                                         reportTarget = (.post, post.id)
                                         showReport = true
+                                    }
+                                    Button("Report abuse by email") {
+                                        reportAbuseEmail(postId: post.id, commentId: nil)
+                                    }
+                                    if canBlock(post.authorId) {
+                                        Button(isBlocked(post.authorId) ? "Unblock user" : "Block user") {
+                                            Task { await toggleBlock(post.authorId) }
+                                        }
                                     }
                                 } label: {
                                     Image(systemName: "ellipsis.circle").foregroundStyle(.white.opacity(0.7))
@@ -51,6 +61,7 @@ struct PostDetailView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .foregroundStyle(Lx.gold)
+                                .accessibilityIdentifier("post_like_button")
                                 Spacer()
                                 Text(post.createdAt.formatted(date: .abbreviated, time: .shortened))
                                     .font(.caption)
@@ -63,7 +74,7 @@ struct PostDetailView: View {
                         .font(.headline)
                         .foregroundStyle(.white)
 
-                    ForEach(comments) { c in
+                    ForEach(visibleComments) { c in
                         LuxuryCard {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
@@ -86,10 +97,19 @@ struct PostDetailView: View {
                                             reportTarget = (.comment, c.id)
                                             showReport = true
                                         }
+                                        Button("Report abuse by email") {
+                                            reportAbuseEmail(postId: post.id, commentId: c.id)
+                                        }
+                                        if canBlock(c.authorId) {
+                                            Button(isBlocked(c.authorId) ? "Unblock user" : "Block user") {
+                                                Task { await toggleBlock(c.authorId) }
+                                            }
+                                        }
                                     } label: {
                                         Image(systemName: "ellipsis").foregroundStyle(.white.opacity(0.6))
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityIdentifier("comment_menu")
                                 }
                                 Text(c.text)
                                     .foregroundStyle(.white.opacity(0.85))
@@ -102,6 +122,7 @@ struct PostDetailView: View {
                                     }
                                     .buttonStyle(.plain)
                                     .foregroundStyle(Lx.gold)
+                                    .accessibilityIdentifier("comment_like_button")
                                     Spacer()
                                     Text(c.createdAt.formatted(date: .abbreviated, time: .shortened))
                                 }
@@ -109,6 +130,12 @@ struct PostDetailView: View {
                                 .foregroundStyle(.white.opacity(0.6))
                             }
                         }
+                    }
+
+                    if let blockError {
+                        Text(blockError)
+                            .foregroundStyle(.red)
+                            .font(.caption)
                     }
 
                     LuxuryCard {
@@ -122,6 +149,7 @@ struct PostDetailView: View {
                                 .padding(10)
                                 .background(Color.white.opacity(0.06))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .accessibilityIdentifier("comment_input")
                             Button {
                                 Task { await postComment() }
                             } label: {
@@ -129,6 +157,7 @@ struct PostDetailView: View {
                             }
                             .buttonStyle(LuxuryPrimaryButtonStyle())
                             .disabled(newComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .accessibilityIdentifier("comment_send")
                         }
                     }
                 }
@@ -138,6 +167,11 @@ struct PostDetailView: View {
         .navigationTitle("Post")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .onAppear {
+            if AppEnvironment.uiTestAutofill, let value = AppEnvironment.uiTestComment {
+                newComment = value
+            }
+        }
         .sheet(isPresented: $showReport) {
             if let target = reportTarget {
                 ReportSheetView(targetType: target.0, targetId: target.1, postId: post.id)
@@ -158,11 +192,13 @@ struct PostDetailView: View {
                             .padding(10)
                             .background(Color.white.opacity(0.06))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .accessibilityIdentifier("comment_edit_input")
                         Button("Save") {
                             Task { await saveEditedComment(comment) }
                         }
                         .buttonStyle(LuxuryPrimaryButtonStyle())
                         .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .accessibilityIdentifier("comment_edit_save")
                         Spacer()
                     }
                     .padding(18)
@@ -276,6 +312,48 @@ struct PostDetailView: View {
         return [uid, email, userId].compactMap { $0?.lowercased() }.contains(author)
     }
 
+    private var blockedSet: Set<String> {
+        let ids = appState.session.currentUser?.blockedUserIds ?? []
+        return Set(ids.map { $0.lowercased() })
+    }
+
+    private var visibleComments: [FeedComment] {
+        comments.filter { !isBlocked($0.authorId) }
+    }
+
+    private func isBlocked(_ authorId: String) -> Bool {
+        blockedSet.contains(authorId.lowercased())
+    }
+
+    private func canBlock(_ authorId: String) -> Bool {
+        let uid = appState.session.firebaseUser?.uid.lowercased()
+        let email = appState.session.firebaseUser?.email?.lowercased()
+        let userId = appState.session.currentUser?.id.lowercased()
+        let author = authorId.lowercased()
+        return ![uid, email, userId].compactMap { $0 }.contains(author)
+    }
+
+    private func toggleBlock(_ authorId: String) async {
+        guard var user = appState.session.currentUser else { return }
+        blockError = nil
+        do {
+            if isBlocked(authorId) {
+                try await FirestoreService.shared.unblockUser(docId: user.id, blockedId: authorId)
+                var ids = user.blockedUserIds ?? []
+                ids.removeAll { $0.lowercased() == authorId.lowercased() }
+                user.blockedUserIds = ids
+            } else {
+                try await FirestoreService.shared.blockUser(docId: user.id, blockedId: authorId)
+                var ids = user.blockedUserIds ?? []
+                ids.append(authorId)
+                user.blockedUserIds = ids
+            }
+            appState.session.currentUser = user
+        } catch {
+            blockError = error.localizedDescription
+        }
+    }
+
     private func toggleCommentLike(_ comment: FeedComment) async {
         guard let uid = appState.session.firebaseUser?.uid else { return }
         if isCommentLiked(comment) {
@@ -337,5 +415,18 @@ struct PostDetailView: View {
         var updated = comments[idx]
         mutate(&updated)
         comments[idx] = updated
+    }
+
+    private func reportAbuseEmail(postId: String, commentId: String?) {
+        let email = AppConfig.supportEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !email.isEmpty else { return }
+        let subject = "Report abuse: post \(postId)"
+        var body = "Post ID: \(postId)\n"
+        if let commentId { body += "Comment ID: \(commentId)\n" }
+        body += "\nPlease describe the issue:\n"
+        let subjectEncoded = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let bodyEncoded = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        guard let url = URL(string: "mailto:\(email)?subject=\(subjectEncoded)&body=\(bodyEncoded)") else { return }
+        openURL(url)
     }
 }

@@ -6,7 +6,10 @@ struct RootView: View {
     var body: some View {
         Group {
             // Email verification is required for non-admin accounts.
-            if appState.session.firebaseUser != nil && !appState.session.isEmailVerified && appState.session.authRoleHint != .admin {
+            if appState.session.firebaseUser != nil
+                && !appState.session.isEmailVerified
+                && appState.session.authRoleHint != .admin
+                && !AppEnvironment.isUITest {
                 VerifyEmailView()
             } else if let user = appState.session.currentUser {
                 if user.disabled {

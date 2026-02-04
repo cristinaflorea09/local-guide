@@ -8,6 +8,8 @@ struct ExploreExperiencesView: View {
     @State private var isLoading = false
     @State private var nextSlotByExpId: [String: Date] = [:]
     @StateObject private var locationManager = LocationManager()
+    @State private var isRefreshing = false
+    @State private var nextSlotsTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -52,12 +54,15 @@ struct ExploreExperiencesView: View {
             Task { await load() }
         }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-            Task { await load() }
+            Task { await load(silent: true) }
         }
     }
 
-    private func load() async {
-        isLoading = true
+    private func load(silent: Bool = false) async {
+        if isRefreshing { return }
+        isRefreshing = true
+        let shouldShowLoading = !silent && experiences.isEmpty
+        if shouldShowLoading { isLoading = true }
         do {
             // Prefer Near Me (default ON). If location isn't available yet, fall back to regular query.
             if filters.nearMeEnabled, let loc = locationManager.lastLocation {
@@ -77,11 +82,12 @@ struct ExploreExperiencesView: View {
                 let city = filters.city.trimmingCharacters(in: .whitespacesAndNewlines)
                 experiences = try await FirestoreService.shared.getExperiences(city: city.isEmpty ? nil : city)
             }
-            await computeNextSlots()
+            scheduleNextSlots()
         } catch {
-            experiences = []
+            if !silent { experiences = [] }
         }
-        isLoading = false
+        if shouldShowLoading { isLoading = false }
+        isRefreshing = false
     }
 
     private var sortedAndFilteredExperiences: [Experience] {
@@ -174,10 +180,24 @@ struct ExploreExperiencesView: View {
         return true
     }
 
-    private func computeNextSlots() async {
+    private func scheduleNextSlots() {
+        guard filters.sortOption == .soonestAvailable else {
+            nextSlotByExpId = [:]
+            return
+        }
+        let candidates = experiences.filter(matchesFilters)
+        nextSlotsTask?.cancel()
+        nextSlotsTask = Task {
+            let map = await fetchNextSlots(for: candidates)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { nextSlotByExpId = map }
+        }
+    }
+
+    private func fetchNextSlots(for candidates: [Experience]) async -> [String: Date] {
         var map: [String: Date] = [:]
         await withTaskGroup(of: (String, Date?).self) { g in
-            for e in experiences {
+            for e in candidates {
                 g.addTask {
                     let slot = try? await FirestoreService.shared.getNextAvailability(listingType: "experience", listingId: e.id)
                     return (e.id, slot?.start)
@@ -187,6 +207,6 @@ struct ExploreExperiencesView: View {
                 if let date { map[id] = date }
             }
         }
-        nextSlotByExpId = map
+        return map
     }
 }

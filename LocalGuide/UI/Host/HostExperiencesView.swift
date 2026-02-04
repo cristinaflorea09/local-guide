@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 /// Host-facing list of experiences.
 /// Stored in `experiences` collection.
@@ -7,6 +8,10 @@ struct HostExperiencesView: View {
     @State private var experiences: [Experience] = []
     @State private var isLoading = false
     @State private var editTarget: Experience?
+    @State private var lastDoc: DocumentSnapshot?
+    @State private var hasMore = true
+    @State private var isLoadingMore = false
+    private let pageSize = 20
 
     enum SortOption: String, CaseIterable, Identifiable {
         case newest = "Newest"
@@ -63,11 +68,23 @@ struct HostExperiencesView: View {
                         .tint(.blue)
                     }
                 }
+                if hasMore {
+                    HStack {
+                        Spacer()
+                        if isLoadingMore {
+                            ProgressView()
+                        } else {
+                            Button("Load more") { Task { await loadMore() } }
+                                .disabled(isLoading || lastDoc == nil)
+                        }
+                        Spacer()
+                    }
+                }
             }
             .overlay {
-                if isLoading {
+                if isLoading && experiences.isEmpty {
                     ProgressView("Loading…")
-                } else if experiences.isEmpty {
+                } else if !isLoading && experiences.isEmpty {
                     ContentUnavailableView("No experiences yet", systemImage: "sparkles")
                 }
             }
@@ -90,6 +107,7 @@ struct HostExperiencesView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier("host_experience_create")
                 }
             }
             .navigationDestination(item: $editTarget) { exp in
@@ -99,22 +117,52 @@ struct HostExperiencesView: View {
                     }
             }
             .task { await load() }
-            .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-                Task { await load() }
-            }
+            .onAppear { Task { await load() } }
             .refreshable { await load() }
         }
     }
 
     private func load() async {
         guard let email = appState.session.firebaseUser?.email else { return }
+        if let cached = appState.cachedHostExperiences[email], !cached.isEmpty {
+            experiences = cached
+            hasMore = cached.count >= pageSize
+        }
         isLoading = true
         defer { isLoading = false }
         do {
-            experiences = try await FirestoreService.shared.getExperiencesForHost(hostEmail: email)
+            let result = try await FirestoreService.shared.getExperiencesForHostPage(
+                hostEmail: email,
+                limit: pageSize,
+                startAfter: nil
+            )
+            experiences = result.items
+            lastDoc = result.last
+            hasMore = result.items.count == pageSize
+            appState.cachedHostExperiences[email] = experiences
         } catch {
-            experiences = []
+            if experiences.isEmpty { experiences = [] }
+            hasMore = false
         }
     }
-}
 
+    private func loadMore() async {
+        guard let email = appState.session.firebaseUser?.email else { return }
+        guard hasMore, !isLoadingMore else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        do {
+            let result = try await FirestoreService.shared.getExperiencesForHostPage(
+                hostEmail: email,
+                limit: pageSize,
+                startAfter: lastDoc
+            )
+            if !result.items.isEmpty {
+                experiences.append(contentsOf: result.items)
+            }
+            lastDoc = result.last
+            hasMore = result.items.count == pageSize
+            appState.cachedHostExperiences[email] = experiences
+        } catch { }
+    }
+}

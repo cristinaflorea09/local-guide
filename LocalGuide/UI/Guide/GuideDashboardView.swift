@@ -7,6 +7,7 @@ struct GuideDashboardView: View {
     @State private var bookingsCount: Int = 0
     @State private var toursCount: Int = 0
     @State private var isLoading = false
+    @State private var isRefreshing = false
 
     var body: some View {
         ZStack {
@@ -103,14 +104,18 @@ struct GuideDashboardView: View {
         }
         .task { await load() }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-            Task { await load() }
+            Task { await load(silent: true) }
         }
     }
 
-    private func load() async {
-        if isLoading { return }
-        isLoading = true
-        defer { isLoading = false }
+    private func load(silent: Bool = false) async {
+        if isRefreshing { return }
+        isRefreshing = true
+        if !silent { isLoading = true }
+        defer {
+            isRefreshing = false
+            if !silent { isLoading = false }
+        }
         guard let email = appState.session.firebaseUser?.email else { return }
         do { toursCount = (try await FirestoreService.shared.getToursForGuide(guideEmail: email)).count } catch { }
         do { bookingsCount = (try await FirestoreService.shared.getBookingsForGuide(guideEmail: email)).count } catch { }

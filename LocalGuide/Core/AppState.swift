@@ -13,6 +13,10 @@ final class AppState: ObservableObject {
     @Published var travelerTab: Int = 0
     @Published var guideTab: Int = 0
     @Published var hostTab: Int = 0
+
+    // Lightweight in-memory caches for fast initial render.
+    @Published var cachedGuideTours: [String: [Tour]] = [:]
+    @Published var cachedHostExperiences: [String: [Experience]] = [:]
     
     private var cancellables = Set<AnyCancellable>()
     

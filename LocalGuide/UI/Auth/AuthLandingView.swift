@@ -59,9 +59,11 @@ struct AuthLandingView: View {
                     VStack(spacing: 12) {
                         Button { router.path = [.rolePicker] } label: { Text("Create account") }
                             .buttonStyle(LuxuryPrimaryButtonStyle())
+                            .accessibilityIdentifier("auth_create_account")
 
                         Button { router.goToLogin() } label: { Text("Login") }
                             .buttonStyle(LuxurySecondaryButtonStyle())
+                            .accessibilityIdentifier("auth_login")
                     }
                 }
                 .padding(.horizontal, 18)

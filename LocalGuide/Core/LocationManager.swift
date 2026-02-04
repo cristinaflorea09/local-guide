@@ -18,6 +18,7 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func requestPermission() {
+        if AppEnvironment.isUITest { return }
         // Only request if we haven't already been granted/denied.
         if authorization == .notDetermined {
             manager.requestWhenInUseAuthorization()

@@ -23,6 +23,7 @@ struct RolePickerView: View {
                             } label: {
                                 row(title: "Traveler", subtitle: "Book luxury tours", icon: "suitcase.rolling.fill")
                             }
+                            .accessibilityIdentifier("role_traveler")
                             Divider().opacity(0.15)
 
                             Button {
@@ -30,6 +31,7 @@ struct RolePickerView: View {
                             } label: {
                                 row(title: "Experience Host", subtitle: "Sell cultural experiences", icon: "sparkles")
                             }
+                            .accessibilityIdentifier("role_host")
                             Divider().opacity(0.15)
 
                             Button {
@@ -37,6 +39,7 @@ struct RolePickerView: View {
                             } label: {
                                 row(title: "Guide", subtitle: "Host premium tours", icon: "map.fill")
                             }
+                            .accessibilityIdentifier("role_guide")
 
                             Divider().opacity(0.15)
                         }

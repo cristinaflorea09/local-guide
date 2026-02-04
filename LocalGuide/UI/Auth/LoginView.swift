@@ -1,11 +1,13 @@
 import SwiftUI
 import AuthenticationServices
+import UIKit
 
 struct LoginView: View {
     @EnvironmentObject var router: AuthRouter
     @State private var email = ""
     @State private var password = ""
     @State private var isLoading = false
+    @State private var isSocialLoading = false
     @State private var errorMessage: String?
 
     var body: some View {
@@ -17,14 +19,15 @@ struct LoginView: View {
                         .font(.title.bold())
                         .foregroundStyle(.white)
 
-                    LuxuryTextField(title: "Email", text: $email, keyboard: .emailAddress)
-                    LuxuryTextField(title: "Password", text: $password, secure: true)
+                    LuxuryTextField(title: "Email", text: $email, keyboard: .emailAddress, identifier: "login_email")
+                    LuxuryTextField(title: "Password", text: $password, secure: true, identifier: "login_password")
 
                     Button { Task { await login() } } label: {
                         if isLoading { ProgressView() } else { Text("auth_login") }
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
-                    .disabled(isLoading || email.isEmpty || password.isEmpty)
+                    .disabled(isLoading || isSocialLoading || email.isEmpty || password.isEmpty)
+                    .accessibilityIdentifier("login_submit")
 
                     Text("Or")
                         .font(.caption.weight(.semibold))
@@ -34,6 +37,10 @@ struct LoginView: View {
 
                     AppleSignInButtonView { result, nonce in
                         Task { await handleApple(result, nonce: nonce) }
+                    }
+
+                    GoogleSignInButtonView(isLoading: isSocialLoading) {
+                        Task { await handleGoogle() }
                     }
 
                     if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
@@ -78,5 +85,30 @@ struct LoginView: View {
         case .failure(let error):
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func handleGoogle() async {
+        errorMessage = nil
+        guard let presenting = topViewController() else {
+            errorMessage = "Unable to start Google Sign-In. Please try again."
+            return
+        }
+        isSocialLoading = true
+        defer { isSocialLoading = false }
+        do {
+            try await AuthService.shared.signInWithGoogle(presenting: presenting)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let keyWindow = scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
+        var top = keyWindow?.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top
     }
 }

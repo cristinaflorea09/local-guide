@@ -49,15 +49,17 @@ struct RegisterView: View {
                         .font(.title.bold())
                         .foregroundStyle(.white)
 
-                    LuxuryTextField(title: "Full name", text: $fullName)
-                    LuxuryTextField(title: "Email", text: $email, keyboard: .emailAddress)
-                    LuxuryTextField(title: "Password (min 6)", text: $password, secure: true)
+                    LuxuryTextField(title: "Full name", text: $fullName, identifier: "register_full_name")
+                    LuxuryTextField(title: "Email", text: $email, keyboard: .emailAddress, identifier: "register_email")
+                    LuxuryTextField(title: "Password (min 6)", text: $password, secure: true, identifier: "register_password")
 
                     LuxuryCard {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Location").font(.headline)
                             CountryPicker(country: $country)
+                                .accessibilityIdentifier("register_country")
                             CityPicker(city: $city, country: country)
+                                .accessibilityIdentifier("register_city")
                         }
                     }
 
@@ -134,6 +136,7 @@ struct RegisterView: View {
                                 Text("I accept the Terms & Conditions")
                                     .foregroundStyle(.primary)
                             }
+                            .accessibilityIdentifier("register_accept_terms")
                             Button {
                                 showTerms = true
                             } label: {
@@ -168,6 +171,7 @@ struct RegisterView: View {
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
                     .disabled(isLoading || !acceptedTerms || !providerRequirementsMet || email.isEmpty || password.count < 6 || fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || country.isEmpty || city.isEmpty)
+                    .accessibilityIdentifier("register_submit")
 
                     Text(role == .admin
                          ? "Admin accounts do not require email verification."
@@ -209,6 +213,34 @@ struct RegisterView: View {
             })
         }
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            guard AppEnvironment.uiTestAutofill else { return }
+            if let value = AppEnvironment.uiTestFullName { fullName = value }
+            if let value = AppEnvironment.uiTestEmail { email = value }
+            if let value = AppEnvironment.uiTestPassword { password = value }
+            if let value = AppEnvironment.uiTestCountry { country = value }
+            if let value = AppEnvironment.uiTestCity {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    city = value
+                }
+            }
+            if role == .guide || role == .host {
+                businessName = AppEnvironment.uiTestBusinessName ?? "UI Test Business"
+                businessRegNo = AppEnvironment.uiTestBusinessRegNo ?? "J00/000/2026"
+                businessTaxId = AppEnvironment.uiTestBusinessTaxId ?? "RO12345678"
+                businessAddress = AppEnvironment.uiTestBusinessAddress ?? "Str. Test 1"
+                acceptedIntermediary = true
+                if businessCertificate == nil {
+                    let data = "UI test certificate".data(using: .utf8) ?? Data()
+                    businessCertificate = PickedDocument(
+                        data: data,
+                        fileName: "uitest-certificate.pdf",
+                        contentType: "application/pdf"
+                    )
+                }
+            }
+            acceptedTerms = true
+        }
     }
 
 

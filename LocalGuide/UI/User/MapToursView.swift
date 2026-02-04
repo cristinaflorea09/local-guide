@@ -33,11 +33,19 @@ struct MapToursView: View {
     // Region debouncing
     @State private var regionDebounceTask: Task<Void, Never>?
     @State private var lastLoadedRegionKey: String = ""
+    @State private var currentLoadTask: Task<Void, Never>?
+    @State private var regionCache: [String: CachedRegion] = [:]
 
     // Search UI
     @State private var searchText: String = ""
     @State private var searchResults: [MKMapItem] = []
     @FocusState private var searchFocused: Bool
+
+    private struct CachedRegion {
+        let tours: [Tour]
+        let experiences: [Experience]
+        let timestamp: Date
+    }
 
     private func regionKey(_ r: MKCoordinateRegion) -> String {
         // coarse key so we don’t reload for tiny pans
@@ -54,6 +62,14 @@ struct MapToursView: View {
         let minLon = r.center.longitude - r.span.longitudeDelta / 2
         let maxLon = r.center.longitude + r.span.longitudeDelta / 2
         return (minLat, maxLat, minLon, maxLon)
+    }
+
+    private func queryLimit(for r: MKCoordinateRegion) -> Int {
+        let span = max(r.span.latitudeDelta, r.span.longitudeDelta)
+        if span > 3.0 { return 120 }
+        if span > 1.5 { return 200 }
+        if span > 0.7 { return 300 }
+        return 500
     }
 
     /// Briefly enables follow to snap to user, then turns it off to prevent jumping.
@@ -335,37 +351,65 @@ struct MapToursView: View {
 
     private func loadForVisibleRegion(_ region: MKCoordinateRegion) async {
         let key = regionKey(region)
-        if key == lastLoadedRegionKey { return }
+        if let cached = regionCache[key] {
+            tours = cached.tours
+            experiences = cached.experiences
+            if Date().timeIntervalSince(cached.timestamp) < 30, key == lastLoadedRegionKey {
+                return
+            }
+        }
+
         lastLoadedRegionKey = key
 
-        isLoading = true
-        defer { isLoading = false }
+        currentLoadTask?.cancel()
+        currentLoadTask = Task {
+            await MainActor.run { isLoading = true }
+            defer { Task { @MainActor in isLoading = false } }
 
-        let b = bounds(for: region)
+            let b = bounds(for: region)
+            let limit = queryLimit(for: region)
 
-        do {
-            // Query server by latitude range and filter longitude locally.
-            let tourCandidates = try await FirestoreService.shared.getToursByLatitudeRange(
-                minLat: b.minLat, maxLat: b.maxLat, limit: 600
-            )
-            let expCandidates = try await FirestoreService.shared.getExperiencesByLatitudeRange(
-                minLat: b.minLat, maxLat: b.maxLat, limit: 600
-            )
+            do {
+                // Query server by latitude range and filter longitude locally.
+                async let tourCandidates = FirestoreService.shared.getToursByLatitudeRange(
+                    minLat: b.minLat, maxLat: b.maxLat, limit: limit
+                )
+                async let expCandidates = FirestoreService.shared.getExperiencesByLatitudeRange(
+                    minLat: b.minLat, maxLat: b.maxLat, limit: limit
+                )
 
-            tours = tourCandidates.filter { t in
-                guard let lat = t.latitude, let lon = t.longitude else { return false }
-                return lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon && (t.active == true)
+                let (toursRaw, expsRaw) = try await (tourCandidates, expCandidates)
+                guard !Task.isCancelled else { return }
+
+                let filteredTours = toursRaw.filter { t in
+                    guard let lat = t.latitude, let lon = t.longitude else { return false }
+                    return lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon && (t.active == true)
+                }
+                let filteredExps = expsRaw.filter { e in
+                    guard let lat = e.latitude, let lon = e.longitude else { return false }
+                    return lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon && (e.active == true)
+                }
+
+                await MainActor.run {
+                    tours = filteredTours
+                    experiences = filteredExps
+                    regionCache[key] = CachedRegion(tours: filteredTours, experiences: filteredExps, timestamp: Date())
+                }
+
+                // Prefetch a limited number of profiles used by callouts/details.
+                let tourSlice = filteredTours.prefix(40)
+                let expSlice = filteredExps.prefix(40)
+                await withTaskGroup(of: Void.self) { group in
+                    for t in tourSlice {
+                        group.addTask { await directory.loadGuideIfNeeded(t.guideEmail) }
+                    }
+                    for e in expSlice {
+                        group.addTask { await directory.loadHostIfNeeded(e.hostEmail) }
+                    }
+                }
+            } catch {
+                print("Map region load failed:", error.localizedDescription)
             }
-            experiences = expCandidates.filter { e in
-                guard let lat = e.latitude, let lon = e.longitude else { return false }
-                return lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon && (e.active == true)
-            }
-
-            // Prefetch profiles used by callouts/details.
-            for t in tours { await directory.loadGuideIfNeeded(t.guideEmail) }
-            for e in experiences { await directory.loadHostIfNeeded(e.hostEmail) }
-        } catch {
-            print("Map region load failed:", error.localizedDescription)
         }
     }
 }

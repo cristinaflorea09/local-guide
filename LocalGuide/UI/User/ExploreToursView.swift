@@ -10,6 +10,8 @@ struct ExploreToursView: View {
     @State private var nextSlotByTourId: [String: Date] = [:]
     @StateObject private var directory = ProfileDirectory()
     @StateObject private var locationManager = LocationManager()
+    @State private var isRefreshing = false
+    @State private var nextSlotsTask: Task<Void, Never>?
     
     private var premiumBanner: some View {
         Group {
@@ -87,12 +89,15 @@ struct ExploreToursView: View {
             Task { await load() }
         }
         .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-            Task { await load() }
+            Task { await load(silent: true) }
         }
     }
 
-    private func load() async {
-        isLoading = true
+    private func load(silent: Bool = false) async {
+        if isRefreshing { return }
+        isRefreshing = true
+        let shouldShowLoading = !silent && tours.isEmpty
+        if shouldShowLoading { isLoading = true }
         do {
             // Prefer Near Me (default ON). If location isn't available yet, fall back to regular query.
             if filters.nearMeEnabled, let loc = locationManager.lastLocation {
@@ -114,11 +119,12 @@ struct ExploreToursView: View {
                 tours = try await FirestoreService.shared.getTours(city: city.isEmpty ? nil : city)
             }
             for t in tours { await directory.loadGuideIfNeeded(t.guideEmail) }
-            await computeNextSlots()
+            scheduleNextSlots()
         } catch {
-            tours = []
+            if !silent { tours = [] }
         }
-        isLoading = false
+        if shouldShowLoading { isLoading = false }
+        isRefreshing = false
     }
 
     private var sortedAndFilteredTours: [Tour] {
@@ -215,10 +221,24 @@ struct ExploreToursView: View {
         return true
     }
 
-    private func computeNextSlots() async {
+    private func scheduleNextSlots() {
+        guard filters.sortOption == .soonestAvailable else {
+            nextSlotByTourId = [:]
+            return
+        }
+        let candidates = tours.filter(matchesFilters)
+        nextSlotsTask?.cancel()
+        nextSlotsTask = Task {
+            let map = await fetchNextSlots(for: candidates)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { nextSlotByTourId = map }
+        }
+    }
+
+    private func fetchNextSlots(for candidates: [Tour]) async -> [String: Date] {
         var map: [String: Date] = [:]
         await withTaskGroup(of: (String, Date?).self) { g in
-            for t in tours {
+            for t in candidates {
                 g.addTask {
                     let slot = try? await FirestoreService.shared.getNextAvailability(listingType: "tour", listingId: t.id)
                     return (t.id, slot?.start)
@@ -229,5 +249,6 @@ struct ExploreToursView: View {
             }
         }
         nextSlotByTourId = map
+        return map
     }
 }

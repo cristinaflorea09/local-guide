@@ -48,6 +48,9 @@ struct AppUser: Identifiable, Codable {
     // Optional avatar
     var photoURL: String? = nil
 
+    /// Blocked user ids (for UGC filtering).
+    var blockedUserIds: [String]? = nil
+
     // Finance / tax (optional; used for earnings dashboard & VAT summaries)
     var vatRegistered: Bool? = nil
     /// VAT rate percentage (e.g., 19 for Romania). If nil, app falls back to country defaults.
@@ -82,6 +85,7 @@ struct AppUser: Identifiable, Codable {
         businessAddress: String? = nil,
         businessCertificateURL: String? = nil,
         photoURL: String? = nil,
+        blockedUserIds: [String]? = nil,
         vatRegistered: Bool? = nil,
         vatRate: Int? = nil,
         createdAt: Date = Date()
@@ -112,6 +116,7 @@ struct AppUser: Identifiable, Codable {
         self.businessAddress = businessAddress
         self.businessCertificateURL = businessCertificateURL
         self.photoURL = photoURL
+        self.blockedUserIds = blockedUserIds
         self.vatRegistered = vatRegistered
         self.vatRate = vatRate
         self.createdAt = createdAt
@@ -171,6 +176,7 @@ struct AppUser: Identifiable, Codable {
 
         vatRegistered = try c.decodeIfPresent(Bool.self, forKey: .vatRegistered)
         vatRate = try c.decodeIfPresent(Int.self, forKey: .vatRate)
+        blockedUserIds = try c.decodeIfPresent([String].self, forKey: .blockedUserIds)
 
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }

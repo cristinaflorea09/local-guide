@@ -54,6 +54,7 @@ struct SellerExperienceDetailView: View {
                         Text("Edit experience")
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
+                    .accessibilityIdentifier("experience_detail_edit")
 
                     Spacer(minLength: 8)
                 }

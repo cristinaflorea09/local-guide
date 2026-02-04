@@ -4,6 +4,7 @@ struct UserDashboardView: View {
     @EnvironmentObject var appState: AppState
     @State private var upcomingCount: Int = 0
     @State private var isLoading = false
+    @State private var isRefreshing = false
     @State private var topTours: [Tour] = []
     @State private var topExperiences: [Experience] = []
     @State private var tripPlans: [TripPlan] = []
@@ -130,14 +131,19 @@ struct UserDashboardView: View {
             }
             .task { await load() }
             .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
-                Task { await load() }
+                Task { await load(silent: true) }
             }
         }
     }
 
-    private func load() async {
-        isLoading = true
-        defer { isLoading = false }
+    private func load(silent: Bool = false) async {
+        if isRefreshing { return }
+        isRefreshing = true
+        if !silent { isLoading = true }
+        defer {
+            isRefreshing = false
+            if !silent { isLoading = false }
+        }
         guard let uid = appState.session.firebaseUser?.uid else { return }
         do {
             let bookings = try await FirestoreService.shared.getBookingsForUser(userId: uid)

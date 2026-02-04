@@ -52,6 +52,7 @@ struct SellerTourDetailView: View {
                         Text("Edit tour")
                     }
                     .buttonStyle(LuxuryPrimaryButtonStyle())
+                    .accessibilityIdentifier("tour_detail_edit")
 
                     Spacer(minLength: 8)
                 }
